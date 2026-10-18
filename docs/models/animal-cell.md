@@ -1,0 +1,110 @@
+# Модель: животная клетка (корневая)
+
+## Источник
+
+- «Animal cell 2.0 - annotated in English», автор **montanna**, Sketchfab
+  https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f
+- Лицензия **CC BY 4.0**: изменения и коммерческое использование разрешены, нужна атрибуция.
+- Атрибуция (из `license.txt`): This work is based on "Animal cell 2.0 - annotated in English" (ссылка выше) by montanna (https://sketchfab.com/montanna) licensed under CC-BY-4.0.
+- Основана на «Animal cell - Downloadable» (Lauri Purhonen).
+
+## Файлы в проекте
+
+| Файл | Что это |
+|---|---|
+| `projects/app/public/models/animal-cell/v1/animal-cell.glb` | подготовленная модель (4,6 МБ, 447 тыс. треугольников) |
+| `projects/app/public/manifests/animal-cell.json` | манифест корневой сцены |
+| `projects/app/public/manifests/{nucleus,endoplasmic-reticulum,golgi,mitochondrion}.json` | заглушки детальных уровней на этой же модели (`docs/05-manifest.md`, «Детальные уровни») |
+| `tools/prepare-animal-cell.mjs` | скрипт подготовки: исходник Sketchfab → `v1` |
+| `docs/models/animal-cell-parts.png` | проверочный рендер: каждая группа подсвечена |
+
+Исходник (`scene.gltf` + `scene.bin`, 72 МБ) в репозиторий не кладётся.
+
+## Структура подготовленной модели
+
+```
+GLTF_SceneRootNode
+├─ PlasmaMembrane
+├─ Cytoplasm                      полупрозрачная плоскость среза
+├─ Nucleus
+│  ├─ Nucleus_Envelope
+│  ├─ Nucleus_Pores
+│  ├─ Nucleus_Nucleoplasm         полупрозрачная
+│  ├─ Nucleus_Body                крупная сфера: видимая розовая заливка ядра
+│  ├─ Nucleus_Nucleolus
+│  └─ Nucleus_Chromatin
+├─ EndoplasmicReticulum
+│  ├─ RoughER
+│  │  ├─ RoughER_Membrane
+│  │  └─ Ribosomes
+│  │     └─ Ribosome.0001 … Ribosome.0951
+│  └─ SmoothER
+│     └─ SmoothER.1 … SmoothER.3
+├─ Golgi                          вместе со своими везикулами
+├─ Mitochondria
+│  ├─ Mitochondrion.1             в разрезе
+│  │  ├─ Mitochondrion.1_Outer
+│  │  └─ Mitochondrion.1_Cristae
+│  ├─ Mitochondrion.2             целая
+│  └─ Mitochondrion.3             целая
+├─ Centrosome
+│  └─ Centriole.1, Centriole.2
+└─ Unidentified
+   └─ Unknown_Yellow.1, Unknown_Yellow.2
+```
+
+У каждого листа есть вложенный узел с мешем (`Golgi` → `Golgi_mesh`), меш назван так же, как часть. Ось Y вверх, клетка разрезана горизонтально.
+
+Как посмотреть дерево: three.js editor (threejs.org/editor, Outliner; имена без точек — так их видит `GLTFLoader`), Babylon.js Sandbox (Inspector → Scene Explorer; исходные имена), Blender (Outliner). gltf.report иерархию не показывает.
+
+## Особенности исходника, которые исправляет скрипт
+
+- **Технические имена** (`Sphere.005_8`, `BezierCurve_15`), все объекты плоским списком. → смысловые имена и иерархия по строению клетки.
+- **Склеенные меши**: `Sphere.002_17` — мембраны трёх митохондрий; `Roundcube.000_12` — две центриоли и два жёлтых тельца (57 несвязных кусков). → разделены по связности геометрии; центриоли — кластеризацией.
+- **Дубликаты рибосом**: 2002 объекта стоят в 953 уникальных позициях — 1049 точных копий одна в другой. → удалены (из-за них клик по рибосоме «не показывал обводку»: её перекрывала копия).
+- **Крупная сфера** с материалом рибосом (в 13 раз крупнее рибосомы) пересекается с ядром и **видна** сквозь его полупрозрачную нижнюю часть — она даёт ядру насыщенную розовую заливку (проверено рендером: без неё ядро бледнее). → оставлена как `Nucleus_Body`.
+- **10 крошечных сфер** (одна с материалом рибосом, девять других цветов) утоплены в мембраны ЭПР и снаружи не видны (удаление меняет 0–6 пикселей на кадр). → удалены.
+- Все 951 рибосома прилегают к поверхности шероховатого ЭПР (центр не дальше 0,14 от поверхности при радиусе ~0,075) — свободных рибосом в модели нет, поэтому они лежат внутри `RoughER`.
+- Около двух третей рибосом — ниже плоскости среза, видны сквозь полупрозрачную цитоплазму.
+- Цитоплазма использует `KHR_materials_transmission` (дорогой проход в three.js) — отключается в манифесте (`material.transmission: 0`).
+- Хроматин — 141 тыс. треугольников, можно упростить позже.
+
+## Что делает скрипт
+
+`node tools/prepare-animal-cell.mjs <путь>/scene.gltf projects/app/public/models/animal-cell/v2/animal-cell.glb`
+
+1. Переименовывает узлы по таблице.
+2. Рибосомы (по материалу `Material.018`): крупную сферу → `Nucleus_Body`, точные дубликаты удаляет, остальные → `Ribosome.0001…`.
+3. Удаляет 10 крошечных невидимых сфер.
+4. Разделяет мембраны митохондрий: кусок, ближайший к кристам, — мембрана разрезанной митохондрии.
+5. Разделяет центриоли и жёлтые тельца: два обособленных куска — тельца, остальные 55 → две центриоли (k-means, k=2).
+6. Даёт имена вложенным узлам и мешам.
+7. Собирает иерархию (группы — пустые узлы с единичной трансформацией, положения не меняются).
+8. Сжимает: `dedup` + `prune` + `meshopt`. **Без `instance`** — он стирает имена узлов; инстансинг делает ядро по `render.instanced`.
+
+Встроенные проверки (скрипт падает с ошибкой, если не сходится): 2002 объекта рибосом в исходнике, ровно 1 крупная сфера и она пересекается с ядром, ровно 951 уникальная рибосома, дубликаты одного размера, ровно 10 крошечных сфер, 3 куска мембран митохондрий, 2 жёлтых тельца, в каждой центриоли ≥ 20 кусков, баланс треугольников (было − удалено = стало: 746 049 − 298 638 = 447 411), все узлы со смысловыми именами, все ожидаемые узлы на месте.
+
+Проверка результата: попиксельное сравнение с исходником с шести ракурсов — различается 0,01–1,2 % пикселей (порядок отрисовки полупрозрачных треугольников ядра и края после сжатия); ни одна видимая деталь не пропала. Удаление любых объектов проверяется так же.
+
+Зависимости (devDependencies): `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions`, `meshoptimizer`.
+
+## Части в манифесте клетки
+
+| Часть | Узел | `pick` / `select` | Детальный уровень |
+|---|---|---|---|
+| `plasma-membrane` | `PlasmaMembrane` | select | — |
+| `cytoplasm` | `Cytoplasm` | select (перекрывает то, что под срезом) | — |
+| `nucleus` | `Nucleus` (всё поддерево) | select, целиком | `nucleus` |
+| `rough-er` | `RoughER` (мембрана + рибосомы) | select, целиком | `endoplasmic-reticulum`, фокус `rough-er` |
+| `smooth-er` | `SmoothER` (3 сегмента) | select, целиком | `endoplasmic-reticulum`, фокус `smooth-er` |
+| `golgi` | `Golgi` | select | `golgi` |
+| `mitochondria` | `Mitochondria` | select, **по одной** (`each`); сноска у `Mitochondrion.1` | `mitochondrion` |
+| `centrosome` | `Centrosome` (2 центриоли) | select, целиком | — |
+| (нет части) | `Unidentified` | block (по умолчанию) | — |
+
+На детальных уровнях (заглушках): в ядре — оболочка, поры, ядрышко, хроматин (нуклеоплазма и `Nucleus_Body` — `pass`); в ЭПР — мембрана шероховатого ЭПР, рибосомы (**по одной**), гладкий ЭПР; в митохондрии — наружная мембрана и кристы.
+
+## Открытые вопросы
+
+- Жёлтые тельца (`Unidentified`) — уточнить у медуниверситета (кандидаты: лизосомы, пероксисомы, везикулы). После опознания — переименовать в скрипте и добавить часть.
+- Тексты сущностей: `animal-cell`, `plasma-membrane`, `cytoplasm`, `nucleus`, `nuclear-envelope`, `nuclear-pore`, `nucleoplasm`, `nucleolus`, `chromatin`, `endoplasmic-reticulum`, `rough-endoplasmic-reticulum`, `smooth-endoplasmic-reticulum`, `ribosome`, `golgi-apparatus`, `mitochondrion`, `mitochondrial-outer-membrane`, `mitochondrial-cristae`, `centrosome`.

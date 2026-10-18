@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "endoplasmic-reticulum",
+  "status": "stub",
+  "entity": "endoplasmic-reticulum",
+  "model": {
+    "url": "models/animal-cell/v1/animal-cell.glb",
+    "upAxis": "y"
+  },
+  "include": [
+    "EndoplasmicReticulum"
+  ],
+  "camera": {
+    "fit": "auto"
+  },
+  "defaults": {
+    "pick": "select",
+    "select": "whole",
+    "hoverable": true
+  },
+  "parts": [
+    {
+      "id": "rough-er",
+      "entity": "rough-endoplasmic-reticulum",
+      "nodes": [
+        "RoughER_Membrane"
+      ],
+      "explode": {
+        "order": 1
+      }
+    },
+    {
+      "id": "ribosomes",
+      "entity": "ribosome",
+      "nodes": [
+        "Ribosomes"
+      ],
+      "select": "each",
+      "render": {
+        "instanced": {
+          "match": "^Ribosome\\."
+        }
+      },
+      "label": {
+        "instance": "Ribosome.0001"
+      },
+      "explode": {
+        "with": "rough-er"
+      }
+    },
+    {
+      "id": "smooth-er",
+      "entity": "smooth-endoplasmic-reticulum",
+      "nodes": [
+        "SmoothER"
+      ],
+      "explode": {
+        "order": 2
+      }
+    }
+  ],
+  "source": {
+    "title": "Animal cell 2.0 - annotated in English",
+    "author": "montanna",
+    "authorUrl": "https://sketchfab.com/montanna",
+    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "platform": "Sketchfab",
+    "license": "CC-BY-4.0",
+    "modified": true
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "id": "animal-cell",
+  "status": "ready",
+  "entity": "animal-cell",
+  "model": {
+    "url": "models/animal-cell/v1/animal-cell.glb",
+    "upAxis": "y"
+  },
+  "camera": {
+    "fit": "auto",
+    "position": [
+      3.2,
+      5.5,
+      7.2
+    ],
+    "target": [
+      -0.3,
+      -0.4,
+      0.5
+    ]
+  },
+  "defaults": {
+    "pick": "block",
+    "select": "whole",
+    "hoverable": true
+  },
+  "parts": [
+    {
+      "id": "plasma-membrane",
+      "entity": "plasma-membrane",
+      "nodes": [
+        "PlasmaMembrane"
+      ],
+      "pick": "select",
+      "explode": {
+        "stay": true
+      }
+    },
+    {
+      "id": "cytoplasm",
+      "entity": "cytoplasm",
+      "nodes": [
+        "Cytoplasm"
+      ],
+      "pick": "select",
+      "label": {
+        "hidden": true
+      },
+      "material": {
+        "opacity": 0.35,
+        "transmission": 0
+      },
+      "explode": {
+        "stay": true
+      }
+    },
+    {
+      "id": "nucleus",
+      "entity": "nucleus",
+      "nodes": [
+        "Nucleus"
+      ],
+      "pick": "select",
+      "explode": {
+        "order": 1
+      },
+      "detail": "nucleus"
+    },
+    {
+      "id": "rough-er",
+      "entity": "rough-endoplasmic-reticulum",
+      "nodes": [
+        "RoughER"
+      ],
+      "pick": "select",
+      "explode": {
+        "order": 2
+      },
+      "render": {
+        "instanced": {
+          "match": "^Ribosome\\."
+        }
+      },
+      "detail": {
+        "id": "endoplasmic-reticulum",
+        "focus": "rough-er"
+      }
+    },
+    {
+      "id": "smooth-er",
+      "entity": "smooth-endoplasmic-reticulum",
+      "nodes": [
+        "SmoothER"
+      ],
+      "pick": "select",
+      "explode": {
+        "order": 3
+      },
+      "detail": {
+        "id": "endoplasmic-reticulum",
+        "focus": "smooth-er"
+      }
+    },
+    {
+      "id": "golgi",
+      "entity": "golgi-apparatus",
+      "nodes": [
+        "Golgi"
+      ],
+      "pick": "select",
+      "explode": {
+        "order": 4
+      },
+      "detail": "golgi"
+    },
+    {
+      "id": "mitochondria",
+      "entity": "mitochondrion",
+      "nodes": [
+        "Mitochondria"
+      ],
+      "pick": "select",
+      "select": "each",
+      "label": {
+        "instance": "Mitochondrion.1"
+      },
+      "explode": {
+        "order": 5
+      },
+      "detail": "mitochondrion"
+    },
+    {
+      "id": "centrosome",
+      "entity": "centrosome",
+      "nodes": [
+        "Centrosome"
+      ],
+      "pick": "select",
+      "explode": {
+        "order": 6
+      }
+    }
+  ],
+  "source": {
+    "title": "Animal cell 2.0 - annotated in English",
+    "author": "montanna",
+    "authorUrl": "https://sketchfab.com/montanna",
+    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "platform": "Sketchfab",
+    "license": "CC-BY-4.0",
+    "modified": true
+  }
+}

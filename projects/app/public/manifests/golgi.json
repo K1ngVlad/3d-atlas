@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "golgi",
+  "status": "stub",
+  "entity": "golgi-apparatus",
+  "model": {
+    "url": "models/animal-cell/v1/animal-cell.glb",
+    "upAxis": "y"
+  },
+  "include": [
+    "Golgi"
+  ],
+  "camera": {
+    "fit": "auto"
+  },
+  "defaults": {
+    "pick": "select",
+    "select": "whole",
+    "hoverable": true
+  },
+  "parts": [
+    {
+      "id": "golgi",
+      "entity": "golgi-apparatus",
+      "nodes": [
+        "Golgi"
+      ]
+    }
+  ],
+  "source": {
+    "title": "Animal cell 2.0 - annotated in English",
+    "author": "montanna",
+    "authorUrl": "https://sketchfab.com/montanna",
+    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "platform": "Sketchfab",
+    "license": "CC-BY-4.0",
+    "modified": true
+  }
+}

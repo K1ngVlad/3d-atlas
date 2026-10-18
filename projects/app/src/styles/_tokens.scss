@@ -1,0 +1,50 @@
+// Дизайн-токены атласа. Источник значений — docs/03-frontend-architecture.md.
+// Компоненты должны использовать только CSS-переменные ниже, никогда не хардкодить цвет/радиус.
+
+$atlas-colors: (
+  bg: #f6f8fa,
+  canvas: #e8edf2,
+  surface: #ffffff,
+  border: #dce2e8,
+  text: #17212b,
+  text-secondary: #33404c,
+  text-muted: #52606d,
+  accent: #1d6a85,
+  accent-dark: #134b5f,
+  accent-bg: #e3f0f5,
+);
+
+$atlas-radii: (
+  sm: 8px,
+  md: 10px,
+  lg: 14px,
+  pill: 999px,
+);
+
+$atlas-space: (
+  xs: 4px,
+  sm: 8px,
+  md: 12px,
+  lg: 16px,
+  xl: 24px,
+  xxl: 32px,
+);
+
+$atlas-font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+$atlas-header-height: 56px;
+$atlas-touch-target: 44px;
+
+:root {
+  @each $name, $value in $atlas-colors {
+    --atlas-color-#{$name}: #{$value};
+  }
+  @each $name, $value in $atlas-radii {
+    --atlas-radius-#{$name}: #{$value};
+  }
+  @each $name, $value in $atlas-space {
+    --atlas-space-#{$name}: #{$value};
+  }
+  --atlas-font-family: #{$atlas-font-family};
+  --atlas-header-height: #{$atlas-header-height};
+  --atlas-touch-target: #{$atlas-touch-target};
+}

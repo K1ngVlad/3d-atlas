@@ -1,0 +1,17 @@
+// Material 3 тема, привязанная к токенам атласа.
+// Используем встроенную палитру azure (близка к акценту #1D6A85);
+// точечные переопределения через CSS custom properties — в компонентах.
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: mat.$azure-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: var(--atlas-font-family),
+    density: 0,
+  ));
+}

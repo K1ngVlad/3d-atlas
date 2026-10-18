@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "mitochondrion",
+  "status": "stub",
+  "entity": "mitochondrion",
+  "model": {
+    "url": "models/animal-cell/v1/animal-cell.glb",
+    "upAxis": "y"
+  },
+  "include": [
+    "Mitochondrion.1"
+  ],
+  "camera": {
+    "fit": "auto"
+  },
+  "defaults": {
+    "pick": "select",
+    "select": "whole",
+    "hoverable": true
+  },
+  "parts": [
+    {
+      "id": "outer-membrane",
+      "entity": "mitochondrial-outer-membrane",
+      "nodes": [
+        "Mitochondrion.1_Outer"
+      ],
+      "explode": {
+        "order": 1
+      }
+    },
+    {
+      "id": "cristae",
+      "entity": "mitochondrial-cristae",
+      "nodes": [
+        "Mitochondrion.1_Cristae"
+      ],
+      "explode": {
+        "order": 2
+      }
+    }
+  ],
+  "source": {
+    "title": "Animal cell 2.0 - annotated in English",
+    "author": "montanna",
+    "authorUrl": "https://sketchfab.com/montanna",
+    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "platform": "Sketchfab",
+    "license": "CC-BY-4.0",
+    "modified": true
+  }
+}

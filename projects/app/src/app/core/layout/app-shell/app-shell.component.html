@@ -1,0 +1,21 @@
+<div class="shell">
+  <header class="shell__header">
+    <a class="shell__logo" routerLink="/atlas" aria-label="Атлас — на главную">
+      <span class="shell__logo-mark" aria-hidden="true"></span>
+      <span class="shell__logo-text">Атлас</span>
+    </a>
+    <nav class="shell__nav" aria-label="Разделы">
+      @for (link of links; track link.path) {
+        <a
+          class="shell__nav-link"
+          [routerLink]="link.path"
+          routerLinkActive="shell__nav-link--active"
+          [routerLinkActiveOptions]="{ exact: false }"
+        >{{ link.label }}</a>
+      }
+    </nav>
+  </header>
+  <main class="shell__main">
+    <router-outlet />
+  </main>
+</div>

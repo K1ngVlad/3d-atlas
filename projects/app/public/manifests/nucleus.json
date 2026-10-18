@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "id": "nucleus",
+  "status": "stub",
+  "entity": "nucleus",
+  "model": {
+    "url": "models/animal-cell/v1/animal-cell.glb",
+    "upAxis": "y"
+  },
+  "include": [
+    "Nucleus"
+  ],
+  "camera": {
+    "fit": "auto"
+  },
+  "defaults": {
+    "pick": "select",
+    "select": "whole",
+    "hoverable": true
+  },
+  "parts": [
+    {
+      "id": "envelope",
+      "entity": "nuclear-envelope",
+      "nodes": [
+        "Nucleus_Envelope"
+      ],
+      "explode": {
+        "order": 1
+      }
+    },
+    {
+      "id": "pores",
+      "entity": "nuclear-pore",
+      "nodes": [
+        "Nucleus_Pores"
+      ],
+      "explode": {
+        "with": "envelope"
+      }
+    },
+    {
+      "id": "nucleoplasm",
+      "entity": "nucleoplasm",
+      "nodes": [
+        "Nucleus_Nucleoplasm",
+        "Nucleus_Body"
+      ],
+      "pick": "pass",
+      "label": {
+        "hidden": true
+      },
+      "explode": {
+        "stay": true
+      }
+    },
+    {
+      "id": "nucleolus",
+      "entity": "nucleolus",
+      "nodes": [
+        "Nucleus_Nucleolus"
+      ],
+      "explode": {
+        "order": 2
+      }
+    },
+    {
+      "id": "chromatin",
+      "entity": "chromatin",
+      "nodes": [
+        "Nucleus_Chromatin"
+      ],
+      "explode": {
+        "order": 3
+      }
+    }
+  ],
+  "source": {
+    "title": "Animal cell 2.0 - annotated in English",
+    "author": "montanna",
+    "authorUrl": "https://sketchfab.com/montanna",
+    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "platform": "Sketchfab",
+    "license": "CC-BY-4.0",
+    "modified": true
+  }
+}

@@ -1,0 +1,23 @@
+@use 'styles/tokens';
+@use 'styles/typography';
+@use 'styles/material';
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  font-family: var(--atlas-font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
