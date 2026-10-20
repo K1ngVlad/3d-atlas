@@ -44,6 +44,10 @@ export class ViewerService {
 
   private readonly zone = inject(NgZone);
 
+  get isAttached(): boolean {
+    return this.viewer !== null;
+  }
+
   attach(canvas: HTMLCanvasElement): void {
     if (this.viewer) return;
     this.zone.runOutsideAngular(() => {

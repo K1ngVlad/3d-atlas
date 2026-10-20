@@ -1,7 +1,6 @@
 import {
   Box3,
   Clock,
-  Color,
   DirectionalLight,
   HemisphereLight,
   Matrix4,
@@ -109,12 +108,14 @@ function installCameraControls(): void {
 export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {}): Viewer {
   installCameraControls();
 
-  const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  // alpha + прозрачный clear: фон рисует CSS хоста (viewer-host / sandbox),
+  // а не сцена — иначе scene.background перекрывает --atlas-color-canvas
+  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(canvas.clientWidth || 1, canvas.clientHeight || 1, false);
 
   const scene = new Scene();
-  scene.background = new Color(0x111418);
 
   const camera = new PerspectiveCamera(45, 1, 0.01, 1000);
   camera.position.set(0, 0, 5);
@@ -155,6 +156,10 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   let needsRender = true;
   let running = true;
   let rafId = 0;
+  // Токен активации: load увеличивает; устаревшая активация бросает load-aborted
+  // до мутации сцены. Сетевой fetch при этом не абортируется — inflight-промис
+  // в model-cache общий для всех ожидающих (см. roadmap, «Долг после шага 3»).
+  let loadSeq = 0;
 
   const requestRender = () => {
     needsRender = true;
@@ -363,6 +368,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
 
   const activateManifest = async (
     manifest: SceneManifest,
+    isCurrent: () => boolean,
     signal?: AbortSignal,
     restore?: ViewState,
   ) => {
@@ -372,6 +378,10 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       signal,
       onProgress: (l, t) => emit({ type: 'load-progress', loaded: l, total: t }),
     });
+    // Пока грузилась модель, пришёл новый load — эту активацию отменяем
+    if (!isCurrent()) {
+      throw new ViewerError('load-aborted', `load superseded: ${manifest.id}`);
+    }
     const sameModel = activeModel === loaded;
     releaseActive(sameModel);
     if (!sameModel) {
@@ -429,9 +439,12 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
 
   return {
     async load(manifest, opts) {
+      const seq = ++loadSeq;
       try {
-        await activateManifest(manifest, opts?.signal, opts?.restore);
+        await activateManifest(manifest, () => seq === loadSeq, opts?.signal, opts?.restore);
       } catch (err) {
+        // Устаревшая активация, отменённая более новым load — не ошибка
+        if (err instanceof ViewerError && err.code === 'load-aborted' && seq !== loadSeq) return;
         const e =
           err instanceof ViewerError ? err : new ViewerError('model-fetch-failed', (err as Error).message, err);
         emit({ type: 'error', error: e });
@@ -510,6 +523,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       requestRender();
     },
     dispose() {
+      loadSeq++;
       running = false;
       cancelAnimationFrame(rafId);
       canvas.removeEventListener('pointermove', onPointerMove);

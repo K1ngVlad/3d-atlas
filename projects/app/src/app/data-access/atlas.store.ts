@@ -23,7 +23,6 @@ import { STRUCTURE_REPO, type EntityContent } from './repositories/structure-rep
 import { ViewerService } from '../viewer/viewer.service';
 
 const SESSION_PANEL_OPEN = 'atlas.panelOpen';
-const DEFAULT_ROOT = 'animal-cell';
 
 export interface LevelFrame {
   manifestId: string;
@@ -69,6 +68,10 @@ function parsePath(url: string): string[] {
   const match = /^\/atlas(?:\/([^?#]*))?/.exec(url);
   if (!match || !match[1]) return [];
   return match[1].split('/').filter(Boolean);
+}
+
+function isAtlasUrl(url: string): boolean {
+  return /^\/atlas(?:[/?#]|$)/.test(url);
 }
 
 @Injectable({ providedIn: 'root' })
@@ -135,12 +138,13 @@ export class AtlasStore {
 
   private pendingDetailFocus: string | null = null;
   private lastLoadedManifestId: string | null = null;
-  private bootstrapped = false;
+  private syncSeq = 0;
 
   constructor() {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe((e) => {
+        if (!isAtlasUrl(e.urlAfterRedirects)) return;
         void this.syncWithUrl(e.urlAfterRedirects);
       });
 
@@ -148,6 +152,7 @@ export class AtlasStore {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe((e) => {
+        if (!isAtlasUrl(e.urlAfterRedirects)) return;
         this.debug.set(/[?&]debug=manifest(?:&|$)/.test(e.urlAfterRedirects));
       });
 
@@ -231,11 +236,8 @@ export class AtlasStore {
     });
   }
 
-  bootstrap(): void {
-    if (this.bootstrapped) return;
-    this.bootstrapped = true;
-    const initial = this.router.url;
-    void this.syncWithUrl(initial);
+  onViewerAttached(): void {
+    void this.syncWithUrl(this.router.url);
   }
 
   async navigateTo(path: string[]): Promise<void> {
@@ -315,15 +317,13 @@ export class AtlasStore {
   }
 
   private async syncWithUrl(url: string): Promise<void> {
+    // Последний вызов отменяет предыдущий: после каждого await проверяем,
+    // не пришёл ли более новый URL.
+    const seq = ++this.syncSeq;
+    const stale = () => seq !== this.syncSeq;
     const segments = parsePath(url);
-    if (segments.length === 0) {
-      // корень /atlas → редирект на дефолтный корневой манифест
-      await this.router.navigate(['/atlas', DEFAULT_ROOT], {
-        replaceUrl: true,
-        queryParamsHandling: 'preserve',
-      });
-      return;
-    }
+    // '/atlas' без пути редиректится маршрутом (atlas.routes), здесь ничего не делаем
+    if (segments.length === 0) return;
     const prev = this.stack();
     const targetTop = segments[segments.length - 1];
 
@@ -337,6 +337,8 @@ export class AtlasStore {
       this.stack.set(nextStack);
       const top = nextStack[nextStack.length - 1];
       this.lastLoadedManifestId = null;
+      // viewer ещё не прикреплён (NavigationEnd до attach) — загрузку запустит onViewerAttached
+      if (!this.viewer.isAttached) return;
       try {
         await this.viewer.load(top.manifest, { restore: top.state ?? undefined });
       } catch {
@@ -353,8 +355,10 @@ export class AtlasStore {
     ) {
       try {
         const manifest = await this.repo.getManifest(targetTop);
+        if (stale()) return;
         this.stack.update((s) => [...s, { manifestId: targetTop, manifest, state: null }]);
         this.lastLoadedManifestId = null;
+        if (!this.viewer.isAttached) return;
         await this.viewer.load(manifest);
       } catch {
         // ошибка проброшена
@@ -367,10 +371,12 @@ export class AtlasStore {
       const frames: LevelFrame[] = [];
       for (const id of segments) {
         const manifest = await this.repo.getManifest(id);
+        if (stale()) return;
         frames.push({ manifestId: id, manifest, state: null });
       }
       this.stack.set(frames);
       this.lastLoadedManifestId = null;
+      if (!this.viewer.isAttached) return;
       await this.viewer.load(frames[frames.length - 1].manifest);
     } catch {
       // в случае ошибки стек оставляем прежним — пользователь увидит сообщение

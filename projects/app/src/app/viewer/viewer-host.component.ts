@@ -44,7 +44,8 @@ export class ViewerHostComponent implements AfterViewInit, OnDestroy {
     apply();
     this.ro = new ResizeObserver(apply);
     this.ro.observe(host);
-    this.store.bootstrap();
+    // загрузку текущего уровня запускаем только после attach
+    this.store.onViewerAttached();
   }
 
   ngOnDestroy(): void {
