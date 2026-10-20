@@ -6,7 +6,6 @@ import {
   HemisphereLight,
   Matrix4,
   Mesh,
-  MeshStandardMaterial,
   PerspectiveCamera,
   Quaternion,
   Raycaster,
@@ -68,7 +67,10 @@ export interface ViewerConfig {
 }
 
 export interface Viewer {
-  load(manifest: SceneManifest, opts?: { signal?: AbortSignal }): Promise<void>;
+  load(
+    manifest: SceneManifest,
+    opts?: { signal?: AbortSignal; restore?: ViewState },
+  ): Promise<void>;
   preload(manifest: SceneManifest, opts?: { signal?: AbortSignal }): Promise<void>;
   select(selection: Selection | null, opts?: { fly?: boolean }): void;
   hover(selection: Selection | null): void;
@@ -143,6 +145,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   let visual: VisualState | null = null;
   let partPickMode = new Map<string, PickMode>();
   let partDetail = new Map<string, string>();
+  let partHoverable = new Map<string, boolean>();
 
   let options: ViewerOptions = { ...DEFAULT_OPTIONS };
   let insets: ViewportInsets = { ...ZERO_INSETS };
@@ -160,10 +163,12 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
 
   const applyVisualTargets = () => {
     if (!visual) return;
+    const canHover =
+      options.hover && hoverSel !== null && (partHoverable.get(hoverSel.partId) ?? true);
     visual.setTargets({
-      hover: options.hover && hoverSel ? partKey(hoverSel.partId, hoverSel.instance) : null,
+      hover: canHover && hoverSel ? partKey(hoverSel.partId, hoverSel.instance) : null,
       selected: selection ? partKey(selection.partId, selection.instance) : null,
-      dimOthers: selection !== null,
+      dimOthers: selection !== null && options.isolate,
     });
     requestRender();
   };
@@ -254,7 +259,11 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       if (!resolved) return;
       const sel = raycastSelection(ev);
       if (!sel) return;
-      if (!sameSelection(sel, selection)) setSelection(sel, { fly: true });
+      // Если у части есть detail, двойной клик — переход; тратить время
+      // на подлёт камеры к органоиду не нужно (приложение сохранит текущее
+      // стабильное состояние уровня в стек и уйдёт на новый манифест).
+      const hasDetail = partDetail.has(sel.partId);
+      if (!sameSelection(sel, selection)) setSelection(sel, { fly: !hasDetail });
       tryOpenDetail(sel);
     },
   });
@@ -304,44 +313,25 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   };
 
   const buildPartMaps = (manifest: SceneManifest) => {
+    const defHoverable = manifest.defaults?.hoverable ?? true;
     partPickMode = new Map(
       manifest.parts.map((p) => [p.id, (p.pick ?? manifest.defaults?.pick ?? 'block') as PickMode]),
     );
     partDetail = new Map();
+    partHoverable = new Map();
     for (const p of manifest.parts) {
       const d = readDetailId(p.detail);
       if (d) partDetail.set(p.id, d);
+      partHoverable.set(p.id, p.hoverable ?? defHoverable);
     }
   };
 
-  const applyMaterialOverrides = (manifest: SceneManifest) => {
-    if (!resolved) return;
-    for (const part of manifest.parts) {
-      const ov = part.material as MaterialOverride | undefined;
-      if (!ov) continue;
-      const keys = resolved.orderedKeys.filter((k) => k === part.id || k.startsWith(part.id + '::'));
-      for (const k of keys) {
-        const meshes = resolved.partMeshes.get(k);
-        if (!meshes) continue;
-        for (const mesh of meshes) {
-          const applyToMat = (m: MeshStandardMaterial) => {
-            if (ov.opacity != null) {
-              m.opacity = ov.opacity;
-              m.transparent = m.transparent || ov.opacity < 1 - 1e-3;
-            }
-            if (ov.color) m.color?.set(ov.color);
-            if (ov.emissive && m.emissive) m.emissive.set(ov.emissive);
-            // transmission прокидываем через as-cast — поддержано MeshPhysicalMaterial
-            if (ov.transmission != null) {
-              (m as unknown as { transmission?: number }).transmission = ov.transmission;
-            }
-          };
-          const mat = mesh.material;
-          if (Array.isArray(mat)) mat.forEach((m) => applyToMat(m as MeshStandardMaterial));
-          else applyToMat(mat as MeshStandardMaterial);
-        }
-      }
+  const collectOverrides = (manifest: SceneManifest): Map<string, MaterialOverride> => {
+    const map = new Map<string, MaterialOverride>();
+    for (const p of manifest.parts) {
+      if (p.material) map.set(p.id, p.material);
     }
+    return map;
   };
 
   const applyCamera = (manifest: SceneManifest, root: LoadedModel['root']) => {
@@ -371,7 +361,11 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     hoverSel = null;
   };
 
-  const activateManifest = async (manifest: SceneManifest, signal?: AbortSignal) => {
+  const activateManifest = async (
+    manifest: SceneManifest,
+    signal?: AbortSignal,
+    restore?: ViewState,
+  ) => {
     const url = manifest.model.url;
     const cachedBefore = cache.has(url);
     const loaded = await cache.getOrLoad(url, {
@@ -391,11 +385,20 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       if (!m.isMesh || !m.visible) return;
       if (!resolved!.meshBindings.has(m)) unbound.push(m);
     });
-    visual = new VisualState(resolved.partMeshes, unbound);
+    visual = new VisualState(resolved.partMeshes, collectOverrides(manifest), unbound);
     buildPartMaps(manifest);
-    applyMaterialOverrides(manifest);
-    applyCamera(manifest, loaded.root);
     activeManifest = manifest;
+    // Если передано restored состояние, применяем его СРАЗУ (ещё до первого кадра
+    // после scene.add) — иначе RAF успеет отрисовать камеру из манифеста и мелькнёт.
+    if (restore && restore.manifestId === manifest.id) {
+      const [px, py, pz] = restore.camera.position;
+      const [tx, ty, tz] = restore.camera.target;
+      controls.setLookAt(px, py, pz, tx, ty, tz, false);
+      options = { ...options, ...restore.options };
+      selection = restore.selection ? { ...restore.selection } : null;
+    } else {
+      applyCamera(manifest, loaded.root);
+    }
     applyVisualTargets();
     requestRender();
     // Если модель только что подгружена в этом вызове, прогресса ещё раз не шлём —
@@ -427,7 +430,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   return {
     async load(manifest, opts) {
       try {
-        await activateManifest(manifest, opts?.signal);
+        await activateManifest(manifest, opts?.signal, opts?.restore);
       } catch (err) {
         const e =
           err instanceof ViewerError ? err : new ViewerError('model-fetch-failed', (err as Error).message, err);

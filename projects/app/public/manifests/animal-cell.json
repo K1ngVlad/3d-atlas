@@ -44,6 +44,7 @@
         "Cytoplasm"
       ],
       "pick": "select",
+      "hoverable": false,
       "label": {
         "hidden": true
       },

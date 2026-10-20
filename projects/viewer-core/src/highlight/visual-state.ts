@@ -1,4 +1,5 @@
-import { Color, Material, Mesh, MeshStandardMaterial } from 'three';
+import { Color, Material, Mesh, MeshPhysicalMaterial, MeshStandardMaterial } from 'three';
+import type { MaterialOverride } from '../manifest/schema';
 
 const UNBOUND_KEY = '__unbound__';
 const ACCENT_COLOR = 0x3b82f6;
@@ -46,16 +47,25 @@ export class VisualState {
   private readonly accent = new Color(ACCENT_COLOR);
   private reducedMotion = false;
 
-  constructor(partMeshes: Map<string, Mesh[]>, unboundMeshes: Mesh[] = []) {
+  constructor(
+    partMeshes: Map<string, Mesh[]>,
+    overridesByPartId: Map<string, MaterialOverride> = new Map<string, MaterialOverride>(),
+    unboundMeshes: Mesh[] = [],
+  ) {
     const groups: [string, Mesh[]][] = [...partMeshes];
     if (unboundMeshes.length > 0) groups.push([UNBOUND_KEY, unboundMeshes]);
     for (const [key, meshes] of groups) {
+      // Переопределения из манифеста задают baseline клона; их надо впечатать до
+      // снятия orig*, иначе каждый кадр мы будем возвращать opacity к исходному.
+      const partId = key === UNBOUND_KEY ? null : key.split('::', 1)[0];
+      const override = partId ? overridesByPartId.get(partId) : undefined;
       const records: MatRecord[] = [];
       const cloneByOriginal = new Map<Material, Material>();
       const cloneMat = (m: Material): Material => {
         const existing = cloneByOriginal.get(m);
         if (existing) return existing;
         const c = m.clone();
+        if (override) applyOverride(c, override);
         cloneByOriginal.set(m, c);
         return c;
       };
@@ -162,18 +172,33 @@ export class VisualState {
 }
 
 function makeRecord(mesh: Mesh, slot: number, original: Material, clone: Material): MatRecord {
-  const std = original as MeshStandardMaterial;
+  // orig* снимается с КЛОНА — после того как на него нанесены overrides, чтобы
+  // плавное восстановление возвращало к baseline из манифеста, а не к исходнику glTF.
+  const std = clone as MeshStandardMaterial;
   return {
     mesh,
     slot,
     original,
     clone,
-    origOpacity: original.opacity ?? 1,
-    origTransparent: original.transparent ?? false,
+    origOpacity: clone.opacity ?? 1,
+    origTransparent: clone.transparent ?? false,
     origEmissive: std.emissive ? std.emissive.clone() : null,
     origEmissiveIntensity: std.emissiveIntensity ?? 0,
-    origDepthWrite: original.depthWrite ?? true,
+    origDepthWrite: clone.depthWrite ?? true,
   };
+}
+
+function applyOverride(mat: Material, ov: MaterialOverride): void {
+  const std = mat as MeshStandardMaterial;
+  if (ov.opacity != null) {
+    mat.opacity = ov.opacity;
+    if (ov.opacity < 1 - EPS) mat.transparent = true;
+  }
+  if (ov.color && std.color) std.color.set(ov.color);
+  if (ov.emissive && std.emissive) std.emissive.set(ov.emissive);
+  if (ov.transmission != null) {
+    (mat as MeshPhysicalMaterial).transmission = ov.transmission;
+  }
 }
 
 function lerp(cur: number, target: number, alpha: number): number {

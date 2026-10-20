@@ -4,8 +4,9 @@
 //   1. Даёт узлам смысловые имена и собирает их в иерархию, повторяющую строение клетки
 //      (Nucleus → оболочка, поры, ядрышко…; RoughER → мембрана + рибосомы и т. д.).
 //   2. Разделяет склеенные меши (мембраны митохондрий; центриоли + жёлтые тельца).
-//   3. Чистит рибосомы: удаляет точные дубликаты; крупную сферу с материалом рибосом
-//      (видимая розовая заливка ядра) переносит в ядро; удаляет невидимые крошечные сферы.
+//   3. Чистит рибосомы: удаляет точные дубликаты и крупную сферу с материалом рибосом
+//      (артефакт: торчит из ядра сквозь ЭПР, виден при подсветке ядра); её вклад в цвет ядра
+//      компенсирует материал нуклеоплазмы. Удаляет невидимые крошечные сферы.
 //   4. Сжимает: dedup + prune + meshopt (без instance — он стирает имена узлов).
 //
 // Использование: node tools/prepare-animal-cell.mjs <scene.gltf> <out.glb>
@@ -50,7 +51,7 @@ const CENTRIOLES_SOURCE = 'Roundcube.000_12'; // 2 центриоли + 2 жёл
 const EXPECT = {
   ribosomeObjects: 2002,      // объектов с материалом рибосом в исходнике
   ribosomesUnique: 951,       // после удаления дубликатов, крупной и крошечной сфер
-  nucleusBody: 1,             // крупная сфера с материалом рибосом внутри ядра — заливка ядра
+  nucleusSphere: 1,           // крупная сфера с материалом рибосом, пересекающая ядро — артефакт, удаляется
   tinySpheres: 10,            // крошечные сферы, утопленные в мембраны ЭПР (невидимы) — удаляются
   centriolePiecesMin: 20,
 };
@@ -122,14 +123,16 @@ assert(riboWrappers.length === EXPECT.ribosomeObjects, `ожидалось ${EXP
 const boxes = riboWrappers.map((w) => ({ w, ...worldBox(w) }));
 const sizes = boxes.map((b) => b.size).sort((a, b) => a - b);
 const typical = sizes[Math.floor(sizes.length / 2)];
-const artifacts = boxes.filter((b) => b.size > typical * 5);      // крупная сфера: заливка ядра
+const artifacts = boxes.filter((b) => b.size > typical * 5);      // крупная сфера, пересекающая ядро
 const tiny = boxes.filter((b) => b.size < typical / 3);           // крошечная сфера — удаляется в шаге 3
-assert(artifacts.length === EXPECT.nucleusBody, `ожидалась ${EXPECT.nucleusBody} крупная сфера в ядре, найдено ${artifacts.length}`);
+assert(artifacts.length === EXPECT.nucleusSphere, `ожидалась ${EXPECT.nucleusSphere} крупная сфера у ядра, найдено ${artifacts.length}`);
 {
   const nuc = worldBox(wrappers.get('Icosphere_16'));
-  const body = artifacts[0];
-  assert(dist(body.center, nuc.center) < (nuc.size + body.size) / 2, 'крупная сфера не пересекается с ядром — структура модели изменилась');
-  body.w.setName('Nucleus_Body');
+  const sphere = artifacts[0];
+  assert(dist(sphere.center, nuc.center) < (nuc.size + sphere.size) / 2, 'крупная сфера не пересекается с ядром — структура модели изменилась');
+  // Сфера лишь частично внутри ядра и торчит вниз сквозь ЭПР. Сквозь полупрозрачную
+  // нуклеоплазму она давала ядру насыщенный розовый цвет — компенсируем материалом (шаг 3а).
+  removeWrapper(sphere.w);
 }
 
 const seen = new Map();
@@ -150,7 +153,7 @@ for (const b of boxes) {
 }
 assert(ribosomes.length === EXPECT.ribosomesUnique, `ожидалось ${EXPECT.ribosomesUnique} уникальных рибосом, найдено ${ribosomes.length}`);
 ribosomes.forEach((b, i) => b.w.setName('Ribosome.' + String(i + 1).padStart(4, '0')));
-console.log(`рибосомы: ${ribosomes.length} уникальных, удалено дубликатов ${duplicates}; крупная сфера → Nucleus_Body`);
+console.log(`рибосомы: ${ribosomes.length} уникальных, удалено дубликатов ${duplicates}; крупная сфера у ядра удалена`);
 
 // ---------- 3. Крошечные сферы ----------
 // Утоплены в мембраны ЭПР, снаружи не видны (проверено рендером: удаление меняет 0–6 пикселей).
@@ -165,6 +168,23 @@ for (const w of [...sceneRoot.listChildren()]) {
   }
 }
 assert(tinyRemoved === EXPECT.tinySpheres, `ожидалось ${EXPECT.tinySpheres} крошечных сфер, найдено ${tinyRemoved}`);
+
+// ---------- 3а. Цвет нуклеоплазмы ----------
+// Компенсация удалённой сферы: подобрано сравнением рендеров с исходником
+// (sRGB #ff63cf, непрозрачность 0.85, свечение #ff2a9a × 0.25).
+{
+  const srgbToLinear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const hex = (h) => [1, 3, 5].map((i) => srgbToLinear(parseInt(h.slice(i, i + 2), 16) / 255));
+  const w = wrappers.get('Roundcube_10');
+  const prims = meshKids(w).flatMap((c) => c.getMesh().listPrimitives());
+  assert(prims.length === 1, 'у нуклеоплазмы ожидался один примитив');
+  const mat = prims[0].getMaterial();
+  const users = root.listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getMaterial() === mat);
+  assert(users.length === 1, 'материал нуклеоплазмы используется не только ею — менять нельзя');
+  const [r, g, b] = hex('#ff63cf');
+  mat.setBaseColorFactor([r, g, b, 0.85]);
+  mat.setEmissiveFactor(hex('#ff2a9a').map((v) => v * 0.25));
+}
 
 // ---------- Геометрия: связные компоненты и разделение мешей ----------
 function components(prim) {
@@ -329,7 +349,8 @@ const trisAfter = sceneTris();
 assert(trisAfter === trisBefore - trisRemoved, `треугольники не сходятся: было ${trisBefore}, удалено ${trisRemoved}, стало ${trisAfter}`);
 const allNames = new Set();
 root.listScenes()[0].traverse((n) => allNames.add(n.getName()));
-for (const n of ['PlasmaMembrane', 'Cytoplasm', 'Nucleus', 'Nucleus_Envelope', 'Nucleus_Chromatin', 'Nucleus_Body',
+assert(!root.listNodes().some((n) => n.getName() === 'Nucleus_Body'), 'сфера у ядра не удалена');
+for (const n of ['PlasmaMembrane', 'Cytoplasm', 'Nucleus', 'Nucleus_Envelope', 'Nucleus_Chromatin',
   'EndoplasmicReticulum', 'RoughER', 'RoughER_Membrane', 'Ribosomes', 'Ribosome.0001',
   'Ribosome.' + String(EXPECT.ribosomesUnique).padStart(4, '0'), 'SmoothER', 'SmoothER.3', 'Golgi',
   'Mitochondria', 'Mitochondrion.1', 'Mitochondrion.1_Outer', 'Mitochondrion.1_Cristae', 'Mitochondrion.2', 'Mitochondrion.3',
@@ -343,7 +364,7 @@ console.log('верхний уровень: ' + topLevel.join(', '));
 // ---------- 9. Метаданные и сжатие ----------
 root.getAsset().extras = {
   ...(root.getAsset().extras || {}),
-  modified: 'Renamed and regrouped nodes, split combined meshes, removed duplicate ribosomes and hidden tiny spheres, compressed (tools/prepare-animal-cell.mjs)',
+  modified: 'Renamed and regrouped nodes, split combined meshes, removed duplicate ribosomes, stray sphere at nucleus (nucleoplasm recolored to compensate) and hidden tiny spheres, compressed (tools/prepare-animal-cell.mjs)',
 };
 await doc.transform(dedup(), prune(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
 await io.write(output, doc);

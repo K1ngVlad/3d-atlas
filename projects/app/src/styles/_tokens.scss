@@ -33,6 +33,7 @@ $atlas-space: (
 $atlas-font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 $atlas-header-height: 56px;
 $atlas-touch-target: 44px;
+$atlas-panel-width: 360px;
 
 :root {
   @each $name, $value in $atlas-colors {
@@ -47,4 +48,5 @@ $atlas-touch-target: 44px;
   --atlas-font-family: #{$atlas-font-family};
   --atlas-header-height: #{$atlas-header-height};
   --atlas-touch-target: #{$atlas-touch-target};
+  --atlas-panel-width: #{$atlas-panel-width};
 }

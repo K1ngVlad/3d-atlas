@@ -43,8 +43,7 @@
       "id": "nucleoplasm",
       "entity": "nucleoplasm",
       "nodes": [
-        "Nucleus_Nucleoplasm",
-        "Nucleus_Body"
+        "Nucleus_Nucleoplasm"
       ],
       "pick": "pass",
       "label": {
