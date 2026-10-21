@@ -1,8 +1,10 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 import {
   createViewer,
+  type LabelPosition,
   type SceneManifest,
   type Selection,
+  type Vec3,
   type Viewer,
   type ViewerError,
   type ViewerEvent,
@@ -36,9 +38,11 @@ export class ViewerService {
   readonly hover = signal<Selection | null>(null);
   readonly selection = signal<Selection | null>(null);
   readonly openDetailRequest = signal<OpenDetailRequest | null>(null);
+  readonly labels = signal<LabelPosition[]>([]);
 
   private viewer: Viewer | null = null;
   private unsub: (() => void) | null = null;
+  private frameUnsub: (() => void) | null = null;
   private loadToken = 0;
   private detailSeq = 0;
 
@@ -53,6 +57,9 @@ export class ViewerService {
     this.zone.runOutsideAngular(() => {
       const v = createViewer(canvas);
       this.unsub = v.on((e) => this.onEvent(e));
+      this.frameUnsub = v.onFrame((labels) => {
+        this.zone.run(() => this.labels.set(labels));
+      });
       this.viewer = v;
     });
   }
@@ -60,6 +67,8 @@ export class ViewerService {
   detach(): void {
     this.unsub?.();
     this.unsub = null;
+    this.frameUnsub?.();
+    this.frameUnsub = null;
     this.viewer?.dispose();
     this.viewer = null;
     this.resetState();
@@ -74,6 +83,7 @@ export class ViewerService {
       this.error.set(null);
       this.selection.set(null);
       this.hover.set(null);
+      this.labels.set([]);
     });
     try {
       await this.viewer.load(manifest, { restore: opts?.restore });
@@ -98,6 +108,11 @@ export class ViewerService {
     this.viewer?.select(sel, opts);
   }
 
+  /** Программное наведение (сноска подсвечивает меш и наоборот). */
+  setHover(sel: Selection | null): void {
+    this.viewer?.hover(sel);
+  }
+
   setOptions(o: Partial<ViewerOptions>): void {
     this.viewer?.setOptions(o);
   }
@@ -108,6 +123,11 @@ export class ViewerService {
 
   resetCamera(): void {
     this.viewer?.resetCamera();
+  }
+
+  /** Точка поверхности под курсором в координатах модели (для ?debug=manifest). */
+  pickSurface(clientX: number, clientY: number): Vec3 | null {
+    return this.viewer?.pickSurface(clientX, clientY) ?? null;
   }
 
   getViewState(): ViewState | null {
@@ -160,5 +180,6 @@ export class ViewerService {
     this.hover.set(null);
     this.selection.set(null);
     this.openDetailRequest.set(null);
+    this.labels.set([]);
   }
 }

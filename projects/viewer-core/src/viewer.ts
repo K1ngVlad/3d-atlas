@@ -30,7 +30,7 @@ import {
   partKey,
   type ResolvedManifest,
 } from './manifest/resolve-selectors';
-import type { SceneManifest, PickMode, MaterialOverride } from './manifest/schema';
+import type { SceneManifest, PickMode, MaterialOverride, Vec3 } from './manifest/schema';
 import { detailId as readDetailId } from './manifest/schema';
 import {
   applyViewState,
@@ -42,16 +42,12 @@ import {
   type ViewStateContext,
 } from './view-state';
 import { ViewerError } from './manifest/errors';
+import { resolveLabelAnchors, type LabelAnchor } from './labels/label-anchors';
+import { LabelTracker, type LabelPosition } from './labels/project';
+import { pickSurfacePoint } from './picking/surface';
 
 export type { Selection, ViewerOptions, ViewState } from './view-state';
-
-export interface LabelPosition {
-  partId: string;
-  x: number;
-  y: number;
-  visible: boolean;
-  occluded: boolean;
-}
+export type { LabelPosition } from './labels/project';
 
 export type ViewerEvent =
   | { type: 'hover'; selection: Selection | null }
@@ -80,6 +76,11 @@ export interface Viewer {
   getViewState(): ViewState;
   restoreViewState(s: ViewState): void;
   getLabelPositions(): LabelPosition[];
+  /**
+   * Точка поверхности модели под экранными координатами, в координатах
+   * модели — для `label.anchor` в ?debug=manifest (Shift+клик).
+   */
+  pickSurface(clientX: number, clientY: number): Vec3 | null;
   on(listener: (e: ViewerEvent) => void): () => void;
   onFrame(listener: (labels: LabelPosition[]) => void): () => void;
   resize(width: number, height: number, dpr: number): void;
@@ -153,6 +154,15 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   let selection: Selection | null = null;
   let hoverSel: Selection | null = null;
 
+  // Сноски: якоря текущего манифеста, трекер выбора кандидатов и
+  // троттлинг пересчёта окклюзии (raycast к кандидатам).
+  let anchors: LabelAnchor[] = [];
+  let tracker: LabelTracker | null = null;
+  let lastOcclusionAt = 0;
+  // Снапшот «последнее уведомление было пустым»: пустой массив шлём один раз
+  // на переход (сноски выключены / якорей нет / смена манифеста), а не каждый кадр.
+  let notifiedEmpty = true;
+
   let needsRender = true;
   let running = true;
   let rafId = 0;
@@ -178,6 +188,38 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     requestRender();
   };
 
+  // Проекция сносок: дёшево — каждый отрисованный кадр; окклюзия (raycast) —
+  // не чаще, чем раз в OCCLUSION_THROTTLE_MS, иначе из кэша.
+  const OCCLUSION_THROTTLE_MS = 150;
+  const computeLabels = (forceOcclusion = false) => {
+    const now = performance.now();
+    const refresh = forceOcclusion || now - lastOcclusionAt > OCCLUSION_THROTTLE_MS;
+    if (refresh) lastOcclusionAt = now;
+    return tracker!.update(
+      camera,
+      { width: canvas.clientWidth || 1, height: canvas.clientHeight || 1 },
+      now,
+      refresh,
+    );
+  };
+  const emitLabels = (labels: LabelPosition[]) => {
+    for (const l of frameListeners) l(labels);
+  };
+  // Слушатели вызываются только на отрисованных кадрах. Пустой массив шлём
+  // один раз на переход (сноски выключены / якорей нет / смена манифеста),
+  // а не каждый кадр (roadmap, «Долг после шага 3»).
+  const notifyFrameListeners = () => {
+    if (!options.labels || anchors.length === 0 || !activeModel) {
+      if (!notifiedEmpty) {
+        notifiedEmpty = true;
+        emitLabels([]);
+      }
+      return;
+    }
+    notifiedEmpty = false;
+    emitLabels(computeLabels());
+  };
+
   const render = () => {
     if (!running) return;
     rafId = requestAnimationFrame(render);
@@ -187,12 +229,10 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     if (controlsUpdated || visualAnimating || needsRender) {
       renderer.render(scene, camera);
       needsRender = false;
+      // Слушатели кадра — только когда кадр реально отрисован
+      if (frameListeners.size > 0) notifyFrameListeners();
     }
     if (visualAnimating) needsRender = true;
-    if (frameListeners.size > 0) {
-      const labels: LabelPosition[] = [];
-      for (const l of frameListeners) l(labels);
-    }
   };
   render();
 
@@ -389,13 +429,35 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       activeModel = loaded;
     }
     resolved = resolveManifest(manifest, loaded.root, loaded.originalNames);
+    anchors = resolveLabelAnchors(manifest, resolved, loaded.root);
+    // «Прозрачность насквозь» для окклюзии берётся из baseline: override
+    // манифеста или исходный материал. VisualState ещё не создан — после
+    // releaseActive mesh.material — оригинал glTF, а не клон с анимацией dim.
+    const overrides = collectOverrides(manifest);
+    const seeThrough = new Set<Mesh>();
+    loaded.root.traverse((obj) => {
+      const mesh = obj as Mesh;
+      if (!mesh.isMesh || !mesh.visible) return;
+      const binding = resolved!.meshBindings.get(mesh);
+      const ov = binding ? overrides.get(binding.partId) : undefined;
+      const mat = mesh.material as { opacity?: number; transparent?: boolean };
+      const opacity = ov?.opacity ?? mat.opacity ?? 1;
+      const transparent = ov ? opacity < 1 : mat.transparent === true;
+      if (transparent && opacity < 0.95) seeThrough.add(mesh);
+    });
+    tracker = new LabelTracker(anchors, {
+      root: loaded.root,
+      isSeeThrough: (m) => seeThrough.has(m),
+    });
+    // переход в новое состояние сносок: если якорей нет, приложение получит [] один раз
+    notifiedEmpty = false;
     const unbound: Mesh[] = [];
     loaded.root.traverse((obj) => {
       const m = obj as Mesh;
       if (!m.isMesh || !m.visible) return;
       if (!resolved!.meshBindings.has(m)) unbound.push(m);
     });
-    visual = new VisualState(resolved.partMeshes, collectOverrides(manifest), unbound);
+    visual = new VisualState(resolved.partMeshes, overrides, unbound);
     buildPartMaps(manifest);
     activeManifest = manifest;
     // Если передано restored состояние, применяем его СРАЗУ (ещё до первого кадра
@@ -505,7 +567,16 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       }
     },
     getLabelPositions() {
-      return [];
+      if (!options.labels || anchors.length === 0 || !activeModel) return [];
+      return computeLabels(true);
+    },
+    pickSurface(clientX, clientY) {
+      if (!activeModel) return null;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -(((clientY - rect.top) / rect.height) * 2 - 1);
+      return pickSurfacePoint(activeModel.root, camera, x, y);
     },
     on(listener) {
       listeners.add(listener);

@@ -1,15 +1,12 @@
 {
   "schemaVersion": 1,
   "id": "mitochondrion",
-  "status": "stub",
+  "status": "ready",
   "entity": "mitochondrion",
   "model": {
-    "url": "models/animal-cell/v1/animal-cell.glb",
+    "url": "models/mitochondrion/v1/mitochondrion.glb",
     "upAxis": "y"
   },
-  "include": [
-    "Mitochondrion.1"
-  ],
   "camera": {
     "fit": "auto"
   },
@@ -20,33 +17,97 @@
   },
   "parts": [
     {
-      "id": "outer-membrane",
-      "entity": "mitochondrial-outer-membrane",
+      "id": "membranes",
+      "entity": "mitochondrial-membranes",
       "nodes": [
-        "Mitochondrion.1_Outer"
+        "shell"
       ],
       "explode": {
-        "order": 1
+        "order": 1,
+        "direction": [
+          0,
+          -1,
+          0
+        ]
       }
     },
     {
       "id": "cristae",
       "entity": "mitochondrial-cristae",
       "nodes": [
-        "Mitochondrion.1_Cristae"
+        "cristae"
       ],
+      "material": {
+        "alphaMode": "OPAQUE"
+      },
       "explode": {
-        "order": 2
+        "stay": true
+      }
+    },
+    {
+      "id": "matrix",
+      "entity": "mitochondrial-matrix",
+      "nodes": [
+        "matrix"
+      ],
+      "pick": "pass",
+      "explode": {
+        "order": 1,
+        "direction": [
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "id": "dna",
+      "entity": "mitochondrial-dna",
+      "nodes": {
+        "match": "^dna_\\d+$"
+      },
+      "select": "each",
+      "label": {
+        "instance": "dna_02"
+      },
+      "material": {
+        "alphaMode": "OPAQUE"
+      },
+      "explode": {
+        "order": 2,
+        "direction": [
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "id": "granules",
+      "entity": "mitochondrial-granule",
+      "nodes": {
+        "match": "^granule_\\d+$"
+      },
+      "select": "each",
+      "label": {
+        "instance": "granule_0003"
+      },
+      "material": {
+        "alphaMode": "OPAQUE"
+      },
+      "explode": {
+        "with": "dna"
       }
     }
   ],
   "source": {
-    "title": "Animal cell 2.0 - annotated in English",
-    "author": "montanna",
-    "authorUrl": "https://sketchfab.com/montanna",
-    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "title": "Mitochondria - Cell Organelles",
+    "author": "Vida Systems",
+    "authorUrl": "https://sketchfab.com/objects1",
+    "url": "https://sketchfab.com/3d-models/mitochondria-cell-organelles-397631a85faa487ba1f1cc4fe5e1b7e3",
     "platform": "Sketchfab",
-    "license": "CC-BY-4.0",
-    "modified": true
+    "license": "CC-BY-NC-ND-4.0",
+    "modified": false,
+    "technical": "текстуры 4096 → 2048 WebP, сжатие геометрии meshopt; геометрия, имена и материалы не изменены"
   }
 }

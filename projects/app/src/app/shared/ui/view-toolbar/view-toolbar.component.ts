@@ -5,7 +5,12 @@ import { AtlasStore } from '../../../data-access/atlas.store';
   selector: 'app-view-toolbar',
   template: `
     <div class="bar">
-      <button type="button" disabled title="В разработке">Сноски</button>
+      <button
+        type="button"
+        [class.active]="labels()"
+        [disabled]="loading()"
+        (click)="store.toggleOption('labels')"
+      >Сноски</button>
       <button type="button" disabled title="В разработке">Расслоение</button>
       <button type="button" disabled title="В разработке">Подсветка</button>
       <button
@@ -46,6 +51,7 @@ import { AtlasStore } from '../../../data-access/atlas.store';
 })
 export class ViewToolbarComponent {
   readonly store = inject(AtlasStore);
+  readonly labels = computed(() => this.store.options().labels);
   readonly isolate = computed(() => this.store.options().isolate);
   readonly loading = computed(() => this.store.loading() !== null);
 }

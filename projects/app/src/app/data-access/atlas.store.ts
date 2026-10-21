@@ -83,7 +83,7 @@ export class AtlasStore {
 
   readonly stack = signal<LevelFrame[]>([]);
   readonly options = signal<ViewerOptions>({
-    labels: false,
+    labels: true,
     exploded: false,
     hover: true,
     isolate: false,
@@ -99,6 +99,8 @@ export class AtlasStore {
   readonly selectedEntity = signal<EntityContent | null>(null);
   readonly debug = signal<boolean>(false);
   readonly titles = signal<ReadonlyMap<string, string>>(new Map());
+  /** Названия сущностей частей текущего уровня (для сносок и списка «Состав»). */
+  readonly partTitles = signal<ReadonlyMap<string, string>>(new Map());
 
   readonly current = computed<LevelFrame | null>(() => {
     const s = this.stack();
@@ -192,6 +194,29 @@ export class AtlasStore {
             if (m.has(f.manifestId)) return m;
             const next = new Map(m);
             next.set(f.manifestId, e.title.ru);
+            return next;
+          });
+        });
+      }
+    });
+
+    // названия сущностей частей текущего уровня — для сносок и «Состава»
+    // (ключ: `${manifestId}/${partId}` — части разных уровней могут совпадать по id)
+    effect(() => {
+      const cur = this.current();
+      if (!cur) return;
+      const parts = cur.manifest.parts;
+      for (const p of parts) {
+        const key = `${cur.manifestId}/${p.id}`;
+        if (this.partTitles().has(key)) continue;
+        const entityId = p.entity;
+        if (!entityId) continue;
+        void this.repo.getEntity(entityId).then((e) => {
+          if (!e) return;
+          this.partTitles.update((m) => {
+            if (m.has(key)) return m;
+            const next = new Map(m);
+            next.set(key, e.title.ru);
             return next;
           });
         });

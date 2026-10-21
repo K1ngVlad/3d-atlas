@@ -33,6 +33,9 @@
         "PlasmaMembrane"
       ],
       "pick": "select",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "stay": true
       }
@@ -63,6 +66,9 @@
         "Nucleus"
       ],
       "pick": "select",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 1
       },
@@ -75,6 +81,9 @@
         "RoughER"
       ],
       "pick": "select",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 2
       },
@@ -95,6 +104,9 @@
         "SmoothER"
       ],
       "pick": "select",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 3
       },
@@ -110,6 +122,9 @@
         "Golgi"
       ],
       "pick": "select",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 4
       },
@@ -138,6 +153,9 @@
         "Centrosome"
       ],
       "pick": "select",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 6
       }

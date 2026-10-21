@@ -16,7 +16,7 @@ export const PANEL_WIDTH_PX = 360;
 
 @Component({
   selector: 'app-viewer-host',
-  template: `<canvas #c></canvas>`,
+  template: `<canvas #c (click)="onCanvasClick($event)"></canvas>`,
   styles: `
     :host { position: absolute; inset: 0; display: block; background: var(--atlas-color-canvas); }
     canvas { display: block; width: 100%; height: 100%; touch-action: none; }
@@ -52,5 +52,20 @@ export class ViewerHostComponent implements AfterViewInit, OnDestroy {
     this.ro?.disconnect();
     this.ro = null;
     this.viewer.detach();
+  }
+
+  // ?debug=manifest: Shift+клик по модели копирует координаты точки
+  // поверхности в формате label.anchor
+  onCanvasClick(ev: MouseEvent): void {
+    if (!ev.shiftKey || !this.store.debug()) return;
+    const p = this.viewer.pickSurface(ev.clientX, ev.clientY);
+    if (!p) return;
+    const text = `[${p.map((n) => +n.toFixed(3)).join(', ')}]`;
+    const done = () => console.info(`[atlas] label.anchor = ${text}`);
+    try {
+      void navigator.clipboard.writeText(text).then(done, () => console.info(`[atlas] label.anchor = ${text} (clipboard недоступен)`));
+    } catch {
+      console.info(`[atlas] label.anchor = ${text} (clipboard недоступен)`);
+    }
   }
 }
