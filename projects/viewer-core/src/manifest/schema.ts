@@ -18,6 +18,7 @@ export const MaterialOverrideSchema = z
     color: z.string().optional(),
     emissive: z.string().optional(),
     transmission: z.number().optional(),
+    alphaMode: z.enum(['OPAQUE', 'BLEND']).optional(),
   })
   .passthrough();
 

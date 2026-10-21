@@ -199,6 +199,13 @@ function applyOverride(mat: Material, ov: MaterialOverride): void {
   if (ov.transmission != null) {
     (mat as MeshPhysicalMaterial).transmission = ov.transmission;
   }
+  if (ov.alphaMode === 'OPAQUE') {
+    mat.transparent = false;
+    mat.depthWrite = true;
+    mat.opacity = 1;
+  } else if (ov.alphaMode === 'BLEND') {
+    mat.transparent = true;
+  }
 }
 
 function lerp(cur: number, target: number, alpha: number): number {

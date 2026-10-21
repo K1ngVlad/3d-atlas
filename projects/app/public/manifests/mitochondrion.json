@@ -22,6 +22,9 @@
       "nodes": [
         "shell"
       ],
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 1,
         "direction": [
@@ -37,6 +40,9 @@
       "nodes": [
         "cristae"
       ],
+      "label": {
+        "anchor": "auto"
+      },
       "material": {
         "alphaMode": "OPAQUE"
       },
@@ -51,6 +57,9 @@
         "matrix"
       ],
       "pick": "pass",
+      "label": {
+        "anchor": "auto"
+      },
       "explode": {
         "order": 1,
         "direction": [
