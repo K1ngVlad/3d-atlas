@@ -122,15 +122,22 @@ export function resolveManifest(
     partRoots.set(part.id, roots);
 
     const selectMode = part.select ?? manifest.defaults?.select ?? 'whole';
+    // Для `each`: один найденный узел — экземпляры его прямые дети; несколько —
+    // каждый найденный узел целиком (решение 31, 05-manifest.md «Повторяющиеся объекты»).
+    const eachInstanceRoots: Object3D[][] =
+      selectMode === 'each' && roots.length > 1
+        ? roots.map((r) => [r])
+        : roots.map((r) => r.children);
 
-    for (const partRoot of roots) {
+    for (let i = 0; i < roots.length; i++) {
+      const partRoot = roots[i];
       const rootDepth = depthOf(partRoot, root);
 
       if (selectMode === 'each') {
-        for (const child of partRoot.children) {
-          if (!isAllowed(child)) continue;
-          const instance = originalNames.get(child) ?? child.name;
-          child.traverse((obj) => {
+        for (const instanceRoot of eachInstanceRoots[i]) {
+          if (!isAllowed(instanceRoot)) continue;
+          const instance = originalNames.get(instanceRoot) ?? instanceRoot.name;
+          instanceRoot.traverse((obj) => {
             if (!isAllowed(obj)) return;
             if ((obj as Mesh).isMesh) {
               bindMesh(meshBindings, obj as Mesh, { partId: part.id, instance, depth: rootDepth });

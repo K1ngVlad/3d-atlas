@@ -110,9 +110,9 @@
 - [~] Митохондрия — `docs/models/mitochondrion.md`
   - [x] Модель выбрана, `tools/prepare-mitochondrion.mjs` (только сжатие, с проверками), `models/mitochondrion/v1/mitochondrion.glb` (2,4 МБ)
   - [x] `manifests/mitochondrion.json` (`status: "ready"`), контент: `mitochondrial-membranes`, `-matrix`, `-dna`, `-granule`
-  - [ ] Ядро: `select: "each"` при нескольких найденных узлах — экземпляр каждый узел (`05-manifest.md`, «Повторяющиеся объекты»; решение 31). Тест: `{match: "^granule_\\d+$"}` даёт 7 экземпляров с именами `granule_0000…0006`
+  - [x] Ядро: `select: "each"` при нескольких найденных узлах — экземпляр каждый узел (`05-manifest.md`, «Повторяющиеся объекты»; решение 31). Тест: `{match: "^granule_\\d+$"}` даёт 7 экземпляров с именами `granule_0000…0006`
   - [x] Ядро: `material.alphaMode` (`OPAQUE` / `BLEND`) в схеме и в baseline клона `VisualState` (решение 32). Тест: после `OPAQUE` `transparent === false`, `depthWrite === true`, и подсветка/приглушение возвращают к этому baseline
-  - [ ] devDependency `sharp` (нужен скрипту) и npm-скрипт `prepare:mito`
+  - [x] devDependency `sharp` (нужен скрипту) и npm-скрипт `prepare:mito`
   - [ ] Проверка в приложении: из клетки «Подробнее» у митохондрии → новая модель; кристы видны сквозь вырез; клик по ДНК/грануле выбирает один экземпляр; матрикс пропускает клик (`pass`), выбирается из «Состава»
 - [ ] ЭПР (одна модель, части `rough-er` и `smooth-er`)
 - [ ] Ядро

@@ -117,6 +117,53 @@ describe('resolveManifest', () => {
     expect(inst2.map((m) => m.name)).toEqual(['Mitochondrion.2_mesh']);
   });
 
+  it('select: "each" с несколькими найденными узлами — экземпляр каждый узел', () => {
+    // Повторы не сгруппированы под общим родителем (как granule_0000…0006 в митохондрии).
+    const root = new Group();
+    root.name = 'Root';
+    const names = new Map<Object3D, string>();
+    for (let i = 0; i < 7; i++) {
+      const g = new Group();
+      const idx = String(i).padStart(4, '0');
+      g.name = `granule_${idx}`;
+      const mesh = makeMesh(`granule_${idx}_mesh`);
+      g.add(mesh);
+      root.add(g);
+    }
+    const assignNames = (o: Object3D) => {
+      names.set(o, o.name);
+      o.children.forEach(assignNames);
+    };
+    assignNames(root);
+
+    const manifest: SceneManifest = {
+      ...base,
+      parts: [{ id: 'granules', nodes: { match: '^granule_\\d+$' }, pick: 'select', select: 'each' }],
+    } as SceneManifest;
+    const r = resolveManifest(manifest, root, names);
+    const instanceNames = r.orderedKeys
+      .filter((k) => k.startsWith('granules::'))
+      .map((k) => k.slice('granules::'.length))
+      .sort();
+    expect(instanceNames).toEqual([
+      'granule_0000', 'granule_0001', 'granule_0002', 'granule_0003',
+      'granule_0004', 'granule_0005', 'granule_0006',
+    ]);
+    const sample = r.partMeshes.get(partKey('granules', 'granule_0003')) ?? [];
+    expect(sample.map((m) => m.name)).toEqual(['granule_0003_mesh']);
+  });
+
+  it('select: "each" с одним найденным узлом — экземпляры его дети (поведение не изменилось)', () => {
+    const { root, names } = makeScene();
+    const manifest: SceneManifest = {
+      ...base,
+      parts: [{ id: 'mito', nodes: 'Mitochondria', pick: 'select', select: 'each' }],
+    } as SceneManifest;
+    const r = resolveManifest(manifest, root, names);
+    expect(r.partMeshes.get(partKey('mito', 'Mitochondrion.1'))).toBeDefined();
+    expect(r.partMeshes.get(partKey('mito', 'Mitochondrion.2'))).toBeDefined();
+  });
+
   it('deeper node wins over ancestor', () => {
     const { root, names } = makeScene();
     const manifest: SceneManifest = {
