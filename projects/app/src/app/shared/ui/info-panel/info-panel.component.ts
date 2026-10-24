@@ -124,8 +124,13 @@ export class InfoPanelComponent {
   selectPart(id: string): void {
     this.store.select({ partId: id });
   }
-  partTitle(_id: string, entity?: string): string {
-    return entity ?? _id;
+  partTitle(id: string, entity?: string): string {
+    const cur = this.store.current();
+    if (cur) {
+      const title = this.store.partTitles().get(`${cur.manifestId}/${id}`);
+      if (title) return title;
+    }
+    return entity ?? id;
   }
   hasDetail(p: { detail?: unknown }): boolean {
     const id = readDetailId(p.detail);

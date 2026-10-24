@@ -9,7 +9,9 @@
     "test": "ng test",
     "test:core": "vitest run --config projects/viewer-core/vitest.config.ts",
     "lint": "ng lint",
-    "prepare:mito": "node tools/prepare-mitochondrion.mjs"
+    "prepare:mito": "node tools/prepare-mitochondrion.mjs",
+    "prepare:golgi": "node tools/prepare-golgi.mjs",
+    "prepare:er": "node tools/prepare-er.mjs"
   },
   "private": true,
   "packageManager": "npm@10.9.2",

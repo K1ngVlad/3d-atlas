@@ -1,15 +1,12 @@
 {
   "schemaVersion": 1,
   "id": "golgi",
-  "status": "stub",
+  "status": "ready",
   "entity": "golgi-apparatus",
   "model": {
-    "url": "models/animal-cell/v1/animal-cell.glb",
+    "url": "models/golgi/v1/golgi.glb",
     "upAxis": "y"
   },
-  "include": [
-    "Golgi"
-  ],
   "camera": {
     "fit": "auto"
   },
@@ -20,18 +17,86 @@
   },
   "parts": [
     {
-      "id": "golgi",
-      "entity": "golgi-apparatus",
+      "id": "cis-cisternae",
+      "entity": "golgi-cis-cisternae",
       "nodes": [
-        "Golgi"
-      ]
+        "CisCisternae"
+      ],
+      "label": {
+        "anchor": "auto"
+      },
+      "explode": {
+        "direction": [
+          -1,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "medial-cisternae",
+      "entity": "golgi-medial-cisternae",
+      "nodes": [
+        "MedialCisternae"
+      ],
+      "label": {
+        "anchor": "auto"
+      },
+      "explode": {
+        "stay": true
+      }
+    },
+    {
+      "id": "trans-cisternae",
+      "entity": "golgi-trans-cisternae",
+      "nodes": [
+        "TransCisternae"
+      ],
+      "label": {
+        "anchor": "auto"
+      },
+      "explode": {
+        "direction": [
+          1,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "transport-vesicles",
+      "entity": "golgi-transport-vesicle",
+      "nodes": [
+        "TransportVesicles"
+      ],
+      "select": "each",
+      "label": {
+        "instance": "TransportVesicle.01"
+      },
+      "explode": {
+        "with": "cis-cisternae"
+      }
+    },
+    {
+      "id": "secretory-vesicles",
+      "entity": "secretory-vesicle",
+      "nodes": [
+        "SecretoryVesicles"
+      ],
+      "select": "each",
+      "label": {
+        "instance": "SecretoryVesicle.01"
+      },
+      "explode": {
+        "with": "trans-cisternae"
+      }
     }
   ],
   "source": {
-    "title": "Animal cell 2.0 - annotated in English",
-    "author": "montanna",
-    "authorUrl": "https://sketchfab.com/montanna",
-    "url": "https://sketchfab.com/3d-models/animal-cell-20-annotated-in-english-0d9f7f4257224975b2ef83a283709b2f",
+    "title": "Golgi Apparatus/Complex",
+    "author": "MajoraMaster",
+    "authorUrl": "https://sketchfab.com/MajoraMaster",
+    "url": "https://sketchfab.com/3d-models/golgi-apparatuscomplex-f9a893dac37e43a487bc92e7f828db50",
     "platform": "Sketchfab",
     "license": "CC-BY-4.0",
     "modified": true

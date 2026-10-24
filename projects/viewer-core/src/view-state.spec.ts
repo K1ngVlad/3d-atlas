@@ -17,6 +17,8 @@ function makeControls(pos: [number, number, number], target: [number, number, nu
 function makeCtx(overrides: Partial<ViewStateContext> = {}): ViewStateContext & {
   setOptions: ReturnType<typeof vi.fn>;
   setSelection: ReturnType<typeof vi.fn>;
+  setCameraBeforeExplode: ReturnType<typeof vi.fn>;
+  setExplodedInstant: ReturnType<typeof vi.fn>;
 } {
   const opts: ViewerOptions = { labels: true, exploded: false, hover: true, isolate: false };
   const ctx = {
@@ -24,12 +26,17 @@ function makeCtx(overrides: Partial<ViewStateContext> = {}): ViewStateContext & 
     controls: makeControls([1, 2, 3], [4, 5, 6]).controls,
     options: opts,
     selection: null,
+    cameraBeforeExplode: null,
     setOptions: vi.fn(),
     setSelection: vi.fn(),
+    setCameraBeforeExplode: vi.fn(),
+    setExplodedInstant: vi.fn(),
     ...overrides,
   } as ViewStateContext & {
     setOptions: ReturnType<typeof vi.fn>;
     setSelection: ReturnType<typeof vi.fn>;
+    setCameraBeforeExplode: ReturnType<typeof vi.fn>;
+    setExplodedInstant: ReturnType<typeof vi.fn>;
   };
   return ctx;
 }
@@ -67,6 +74,36 @@ describe('view-state', () => {
       { partId: 'mito', instance: 'Mitochondrion.2' },
       { fly: false },
     );
+    // расслоение при восстановлении — мгновенно и ДО установки камеры
+    expect(ctx.setExplodedInstant).toHaveBeenCalledWith(true);
+    expect(ctx.setExplodedInstant.mock.invocationCallOrder[0]).toBeLessThan(
+      setLookAt.mock.invocationCallOrder[0],
+    );
+    expect(ctx.setCameraBeforeExplode).toHaveBeenCalledWith(null);
+  });
+
+  it('apply переносит cameraBeforeExplode из состояния', () => {
+    const { controls } = makeControls([0, 0, 0], [0, 0, 0]);
+    const ctx = makeCtx({ controls });
+    applyViewState(ctx, {
+      manifestId: 'animal-cell',
+      camera: { position: [1, 1, 1], target: [0, 0, 0] },
+      options: { labels: true, exploded: true, hover: true, isolate: false },
+      selection: null,
+      cameraBeforeExplode: { position: [2, 2, 2], target: [0, 1, 0] },
+    });
+    expect(ctx.setCameraBeforeExplode).toHaveBeenCalledWith({
+      position: [2, 2, 2],
+      target: [0, 1, 0],
+    });
+  });
+
+  it('capture включает cameraBeforeExplode из контекста', () => {
+    const ctx = makeCtx({
+      cameraBeforeExplode: { position: [2, 2, 2], target: [0, 1, 0] },
+    });
+    const s = captureViewState(ctx);
+    expect(s.cameraBeforeExplode).toEqual({ position: [2, 2, 2], target: [0, 1, 0] });
   });
 
   it('apply бросает ViewerError с кодом view-state-manifest-mismatch, если id не совпадает', () => {

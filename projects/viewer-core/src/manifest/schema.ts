@@ -69,6 +69,12 @@ export const DefaultsSchema = z
   })
   .passthrough();
 
+export const ExplodeLayoutSchema = z
+  .object({
+    side: Vec3Schema.optional(),
+  })
+  .passthrough();
+
 export const ModelSchema = z
   .object({
     url: z.string(),
@@ -99,6 +105,7 @@ export const SceneManifestSchema = z
     parts: z.array(PartSchema),
     include: NodeSelectorSchema.optional(),
     ignore: z.array(z.object({ match: z.string() }).passthrough()).optional(),
+    explodeLayout: ExplodeLayoutSchema.optional(),
   })
   .passthrough();
 
@@ -110,6 +117,7 @@ export type MaterialOverride = z.infer<typeof MaterialOverrideSchema>;
 export type DetailRef = z.infer<typeof DetailRefSchema>;
 export type LabelDef = z.infer<typeof LabelSchema>;
 export type ExplodeDef = z.infer<typeof ExplodeSchema>;
+export type ExplodeLayoutDef = z.infer<typeof ExplodeLayoutSchema>;
 export type PartDef = z.infer<typeof PartSchema>;
 export type CameraDef = z.infer<typeof CameraSchema>;
 export type SceneManifest = z.infer<typeof SceneManifestSchema>;

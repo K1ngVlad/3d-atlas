@@ -23,7 +23,7 @@ import { createModelCache, type ModelCache } from './scene/model-cache';
 import { pickPart } from './picking/raycast';
 import { attachClickDetector } from './picking/click-detector';
 import { VisualState } from './highlight/visual-state';
-import { fitToObject, flyToMeshes, ZERO_INSETS, type ViewportInsets } from './camera/fit';
+import { fitToObject, fitBoxKeepView, flyToMeshes, flyToBox, ZERO_INSETS, type ViewportInsets } from './camera/fit';
 import {
   resolveManifest,
   resetModelVisibility,
@@ -36,6 +36,7 @@ import {
   applyViewState,
   captureViewState,
   DEFAULT_OPTIONS,
+  type CameraPose,
   type Selection,
   type ViewerOptions,
   type ViewState,
@@ -161,6 +162,11 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   let insets: ViewportInsets = { ...ZERO_INSETS };
   let selection: Selection | null = null;
   let hoverSel: Selection | null = null;
+  // Камера до включения расслоения и факт ручного перемещения камеры
+  // после включения (решение 35): выключение либо возвращает прежнюю
+  // камеру, либо вписывает собранную модель.
+  let cameraBeforeExplode: CameraPose | null = null;
+  let cameraTouchedSinceExplode = false;
 
   // Сноски: якоря текущего манифеста, трекер выбора кандидатов и
   // троттлинг пересчёта окклюзии (raycast к кандидатам).
@@ -193,6 +199,15 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     needsRender = true;
   };
   controls.addEventListener('update', requestRender);
+  // Ручное перемещение камеры в расслоении: 'controlstart' — от drag/панорамы
+  // (программные переходы его не шлют), wheel — zoom (camera-controls wheel
+  // 'controlstart' не эмитит). Отмечает, что авто-возврат камеры при выключении
+  // расслоения делать не нужно (решение 35).
+  const onUserCameraStart = () => {
+    if (options.exploded) cameraTouchedSinceExplode = true;
+  };
+  controls.addEventListener('controlstart', onUserCameraStart);
+  canvas.addEventListener('wheel', onUserCameraStart, { passive: true });
 
   const applyVisualTargets = () => {
     if (!visual) return;
@@ -332,6 +347,17 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     },
   });
 
+  // Режим pick части. В расслоении (множитель > 0,5) смещённые части с
+  // `pick: "pass"` выбираются как `select`: за ними ничего нет, они видимы
+  // сами по себе (матрикс митохондрии, нуклеоплазма; 02-ux-spec.md).
+  const pickModeFor = (id: string): PickMode => {
+    const mode = partPickMode.get(id) ?? resolved!.defaults.pick;
+    if (mode === 'pass' && explode && explode.factor > 0.5 && explode.isDisplaced(id)) {
+      return 'select';
+    }
+    return mode;
+  };
+
   const raycastSelection = (ev: PointerEvent): Selection | null => {
     if (!resolved || !activeModel) return null;
     const rect = canvas.getBoundingClientRect();
@@ -344,7 +370,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       y,
       resolved.meshBindings,
       resolved.defaults.pick,
-      (id) => partPickMode.get(id) ?? resolved!.defaults.pick,
+      pickModeFor,
     );
     return hit ? { partId: hit.partId, instance: hit.instance } : null;
   };
@@ -354,6 +380,46 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     const meshes = resolved.partMeshes.get(partKey(sel.partId, sel.instance));
     if (!meshes || meshes.length === 0) return;
     flyToMeshes(controls, camera, meshes, insets, canvas);
+  };
+
+  const captureCameraPose = (): CameraPose => {
+    const pos = new Vector3();
+    const target = new Vector3();
+    controls.getPosition(pos);
+    controls.getTarget(target);
+    return { position: [pos.x, pos.y, pos.z], target: [target.x, target.y, target.z] };
+  };
+
+  // Камера при включении/выключении расслоения (решение 35, 02-ux-spec.md,
+  // «Расслоение»): включение — отъезд с сохранением ракурса (подлёт к части,
+  // если она выбрана); выключение — возврат к камере до расслоения, если
+  // пользователь её не трогал, иначе вписывание собранной модели.
+  const applyExplodeCamera = (on: boolean) => {
+    const instant = reducedMotion;
+    if (on) {
+      cameraBeforeExplode = captureCameraPose();
+      cameraTouchedSinceExplode = false;
+      if (selection && resolved) {
+        const meshes = resolved.partMeshes.get(partKey(selection.partId, selection.instance));
+        if (meshes && explode) {
+          flyToBox(controls, camera, explode.previewMeshesBox(meshes), insets, canvas, instant);
+          requestRender();
+        }
+      } else if (activeModel && explode) {
+        fitBoxKeepView(controls, camera, explode.previewBox(activeModel.root), instant);
+        requestRender();
+      }
+      return;
+    }
+    if (cameraBeforeExplode && !cameraTouchedSinceExplode) {
+      const [px, py, pz] = cameraBeforeExplode.position;
+      const [tx, ty, tz] = cameraBeforeExplode.target;
+      controls.setLookAt(px, py, pz, tx, ty, tz, !instant);
+      requestRender();
+    } else if (activeModel) {
+      fitToObject(controls, camera, activeModel.root, instant);
+    }
+    cameraBeforeExplode = null;
   };
 
   const setSelection = (sel: Selection | null, opts: { fly: boolean }) => {
@@ -420,6 +486,8 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       explode.restore();
       explode = null;
     }
+    cameraBeforeExplode = null;
+    cameraTouchedSinceExplode = false;
     if (activeModel) {
       if (!goingToSameModel) {
         scene.remove(activeModel.root);
@@ -456,7 +524,12 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     resolved = resolveManifest(manifest, loaded.root, loaded.originalNames);
     // Расслоение: цели из манифеста + привязка к «верхним» корням частей.
     // Узлы сейчас в исходных позициях (releaseActive вернул их) — это baseline.
-    const explodeTargets = computeExplodeTargets(manifest.parts, resolved.partRoots, loaded.root);
+    const explodeTargets = computeExplodeTargets(
+      manifest.parts,
+      resolved.partRoots,
+      loaded.root,
+      manifest.explodeLayout,
+    );
     const explodeBindings = buildExplodeBindings(explodeTargets, resolved.partRoots, loaded.root);
     explode =
       explodeBindings.size > 0 ? new ExplodeAnimator(explodeTargets, explodeBindings) : null;
@@ -504,12 +577,15 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       controls.setLookAt(px, py, pz, tx, ty, tz, false);
       options = { ...options, ...restore.options };
       selection = restore.selection ? { ...restore.selection } : null;
+      cameraBeforeExplode = restore.cameraBeforeExplode ?? null;
+      cameraTouchedSinceExplode = false;
+      // Расслоение из восстановленного состояния — МГНОВЕННО, до первого кадра
+      // (02-ux-spec.md): уровень возвращается как был, без анимации.
+      explode?.setExploded(options.exploded, { instant: true });
     } else {
       applyCamera(manifest, loaded.root);
+      explode?.setExploded(options.exploded);
     }
-    // Расслоение по итоговым options (могли прийти из restore): без анимации
-    // мелькания нет — при включённой анимации RAF дорисует переход от исходных.
-    explode?.setExploded(options.exploded);
     applyVisualTargets();
     requestRender();
     // Если модель только что подгружена в этом вызове, прогресса ещё раз не шлём —
@@ -517,6 +593,10 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     void cachedBefore;
     emit({ type: 'loaded' });
   };
+
+  // Флаг applyViewState/restoreViewState: подавляет анимацию расслоения и
+  // камерные авто-действия — состояние применяется как есть, из сохранённого.
+  let applyingState = false;
 
   const ctx: ViewStateContext = {
     get manifestId() {
@@ -529,13 +609,25 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     get selection() {
       return selection;
     },
+    get cameraBeforeExplode() {
+      return cameraBeforeExplode;
+    },
     setOptions(o) {
       options = { ...options, ...o };
-      if (o.exploded !== undefined) explode?.setExploded(options.exploded);
+      if (o.exploded !== undefined && explode && !applyingState) {
+        explode.setExploded(options.exploded);
+        applyExplodeCamera(options.exploded);
+      }
       applyVisualTargets();
     },
     setSelection(sel, o) {
       setSelection(sel, { fly: o.fly });
+    },
+    setCameraBeforeExplode(pose) {
+      cameraBeforeExplode = pose;
+    },
+    setExplodedInstant(on) {
+      explode?.setExploded(on, { instant: true });
     },
   };
 
@@ -597,6 +689,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     },
     restoreViewState(s) {
       try {
+        applyingState = true;
         applyViewState(ctx, s);
       } catch (err) {
         if (err instanceof ViewerError) {
@@ -604,6 +697,8 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
           return;
         }
         throw err;
+      } finally {
+        applyingState = false;
       }
     },
     getLabelPositions() {
@@ -647,6 +742,8 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       canvas.removeEventListener('pointerup', onRightUp);
       detachClicks();
       controls.removeEventListener('update', requestRender);
+      controls.removeEventListener('controlstart', onUserCameraStart);
+      canvas.removeEventListener('wheel', onUserCameraStart);
       controls.dispose();
       if (visual) visual.dispose();
       cache.dispose();
