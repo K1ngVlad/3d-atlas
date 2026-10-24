@@ -45,6 +45,11 @@ import { ViewerError } from './manifest/errors';
 import { resolveLabelAnchors, type LabelAnchor } from './labels/label-anchors';
 import { LabelTracker, type LabelPosition } from './labels/project';
 import { pickSurfacePoint } from './picking/surface';
+import {
+  buildExplodeBindings,
+  computeExplodeTargets,
+  ExplodeAnimator,
+} from './explode/explode';
 
 export type { Selection, ViewerOptions, ViewState } from './view-state';
 export type { LabelPosition } from './labels/project';
@@ -145,6 +150,9 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   let activeModel: LoadedModel | null = null;
   let resolved: ResolvedManifest | null = null;
   let visual: VisualState | null = null;
+  // Расслоение: аниматор текущего манифеста; цели считаются из манифеста
+  // от исходных позиций (решение 7), узлы возвращаются при смене манифеста.
+  let explode: ExplodeAnimator | null = null;
   let partPickMode = new Map<string, PickMode>();
   let partDetail = new Map<string, string>();
   let partHoverable = new Map<string, boolean>();
@@ -170,6 +178,16 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   // до мутации сцены. Сетевой fetch при этом не абортируется — inflight-промис
   // в model-cache общий для всех ожидающих (см. roadmap, «Долг после шага 3»).
   let loadSeq = 0;
+
+  // prefers-reduced-motion: плавные переходы (подсветка, расслоение) становятся мгновенными.
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reducedMotion = motionQuery.matches;
+  const onMotionQueryChange = (e: MediaQueryListEvent) => {
+    reducedMotion = e.matches;
+    visual?.setReducedMotion(e.matches);
+    explode?.setReducedMotion(e.matches);
+  };
+  motionQuery.addEventListener('change', onMotionQueryChange);
 
   const requestRender = () => {
     needsRender = true;
@@ -226,13 +244,14 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     const dt = clock.getDelta();
     const controlsUpdated = controls.update(dt);
     const visualAnimating = visual ? visual.update(dt) : false;
-    if (controlsUpdated || visualAnimating || needsRender) {
+    const explodeAnimating = explode ? explode.update(dt) : false;
+    if (controlsUpdated || visualAnimating || explodeAnimating || needsRender) {
       renderer.render(scene, camera);
       needsRender = false;
       // Слушатели кадра — только когда кадр реально отрисован
       if (frameListeners.size > 0) notifyFrameListeners();
     }
-    if (visualAnimating) needsRender = true;
+    if (visualAnimating || explodeAnimating) needsRender = true;
   };
   render();
 
@@ -395,6 +414,12 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       visual.dispose();
       visual = null;
     }
+    if (explode) {
+      // Кэшированная модель может быть переиспользована другим манифестом —
+      // возвращаем узлы в исходные позиции (решение 7: без накопления).
+      explode.restore();
+      explode = null;
+    }
     if (activeModel) {
       if (!goingToSameModel) {
         scene.remove(activeModel.root);
@@ -429,6 +454,13 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       activeModel = loaded;
     }
     resolved = resolveManifest(manifest, loaded.root, loaded.originalNames);
+    // Расслоение: цели из манифеста + привязка к «верхним» корням частей.
+    // Узлы сейчас в исходных позициях (releaseActive вернул их) — это baseline.
+    const explodeTargets = computeExplodeTargets(manifest.parts, resolved.partRoots, loaded.root);
+    const explodeBindings = buildExplodeBindings(explodeTargets, resolved.partRoots, loaded.root);
+    explode =
+      explodeBindings.size > 0 ? new ExplodeAnimator(explodeTargets, explodeBindings) : null;
+    explode?.setReducedMotion(reducedMotion);
     anchors = resolveLabelAnchors(manifest, resolved, loaded.root);
     // «Прозрачность насквозь» для окклюзии берётся из baseline: override
     // манифеста или исходный материал. VisualState ещё не создан — после
@@ -448,6 +480,9 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     tracker = new LabelTracker(anchors, {
       root: loaded.root,
       isSeeThrough: (m) => seeThrough.has(m),
+      // Якоря в координатах модели; при расслоении добавляем текущее
+      // смещение части, чтобы сноски ехали вместе с ней.
+      getDisplacement: (partId) => explode?.currentOffset(partId) ?? null,
     });
     // переход в новое состояние сносок: если якорей нет, приложение получит [] один раз
     notifiedEmpty = false;
@@ -458,6 +493,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       if (!resolved!.meshBindings.has(m)) unbound.push(m);
     });
     visual = new VisualState(resolved.partMeshes, overrides, unbound);
+    visual.setReducedMotion(reducedMotion);
     buildPartMaps(manifest);
     activeManifest = manifest;
     // Если передано restored состояние, применяем его СРАЗУ (ещё до первого кадра
@@ -471,6 +507,9 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     } else {
       applyCamera(manifest, loaded.root);
     }
+    // Расслоение по итоговым options (могли прийти из restore): без анимации
+    // мелькания нет — при включённой анимации RAF дорисует переход от исходных.
+    explode?.setExploded(options.exploded);
     applyVisualTargets();
     requestRender();
     // Если модель только что подгружена в этом вызове, прогресса ещё раз не шлём —
@@ -492,6 +531,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     },
     setOptions(o) {
       options = { ...options, ...o };
+      if (o.exploded !== undefined) explode?.setExploded(options.exploded);
       applyVisualTargets();
     },
     setSelection(sel, o) {
@@ -597,6 +637,8 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       loadSeq++;
       running = false;
       cancelAnimationFrame(rafId);
+      motionQuery.removeEventListener('change', onMotionQueryChange);
+      explode?.restore();
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('contextmenu', onContextMenu);

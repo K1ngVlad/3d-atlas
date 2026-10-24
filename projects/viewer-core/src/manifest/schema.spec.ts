@@ -40,6 +40,28 @@ describe('parseManifest', () => {
     expect((m.parts[0] as unknown as { explode: { order: number } }).explode.order).toBe(5);
   });
 
+  it('types explode: order, stay, with, direction, offset', () => {
+    const m = parseManifest({
+      ...minimal,
+      parts: [
+        { id: 'a', nodes: 'A', explode: { order: 1, direction: [0, -1, 0], offset: 2.5 } },
+        { id: 'b', nodes: 'B', explode: { stay: true } },
+        { id: 'c', nodes: 'C', explode: { with: 'a' } },
+      ],
+    });
+    const [a, b, c] = m.parts;
+    expect(a.explode?.direction).toEqual([0, -1, 0]);
+    expect(a.explode?.offset).toBe(2.5);
+    expect(b.explode?.stay).toBe(true);
+    expect(c.explode?.with).toBe('a');
+  });
+
+  it('rejects invalid explode shape', () => {
+    expect(() =>
+      parseManifest({ ...minimal, parts: [{ id: 'a', nodes: 'A', explode: { direction: [0, 1] } }] }),
+    ).toThrow(/parts\.0\.explode/);
+  });
+
   it('reports path on missing required field', () => {
     expect(() => parseManifest({ ...minimal, model: {} })).toThrow(/model\.url/);
   });

@@ -27,6 +27,11 @@ export interface LabelTrackerOptions {
    * приглушение изоляцией не должно делать часть «невидимой» для луча.
    */
   isSeeThrough: (mesh: Mesh) => boolean;
+  /**
+   * Текущее смещение части при расслоении (в координатах модели).
+   * Якоря хранятся в координатах модели и должны ехать вместе с частью.
+   */
+  getDisplacement?: (partId: string) => Vector3 | null;
   /** Сколько мс новый кандидат должен оставаться лучше текущего. */
   hysteresisMs?: number;
   /** Во сколько раз новый кандидат должен быть ближе к центру, чтобы считаться «заметно лучше». */
@@ -102,7 +107,7 @@ export class LabelTracker {
         st = this.createState(anchor);
         this.states.set(anchor.key, st);
       }
-      this.toWorld(st);
+      this.toWorld(st, this.opts.getDisplacement?.(anchor.partId) ?? null);
       if (refreshOcclusion) this.refreshOcclusion(st);
       result.push(this.place(anchor, st, camera, viewport, now));
     }
@@ -110,9 +115,11 @@ export class LabelTracker {
   }
 
   /** Модельные координаты точек → мировые (scratch, переиспользуется везде ниже). */
-  private toWorld(st: KeyState): void {
+  private toWorld(st: KeyState, displacement: Vector3 | null): void {
     for (let i = 0; i < st.points.length; i++) {
-      st.world[i].copy(st.points[i]).applyMatrix4(this.opts.root.matrixWorld);
+      st.world[i].copy(st.points[i]);
+      if (displacement) st.world[i].add(displacement);
+      st.world[i].applyMatrix4(this.opts.root.matrixWorld);
     }
   }
 

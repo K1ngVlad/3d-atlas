@@ -11,7 +11,12 @@ import { AtlasStore } from '../../../data-access/atlas.store';
         [disabled]="loading()"
         (click)="store.toggleOption('labels')"
       >Сноски</button>
-      <button type="button" disabled title="В разработке">Расслоение</button>
+      <button
+        type="button"
+        [class.active]="exploded()"
+        [disabled]="loading()"
+        (click)="store.toggleOption('exploded')"
+      >Расслоить</button>
       <button type="button" disabled title="В разработке">Подсветка</button>
       <button
         type="button"
@@ -52,6 +57,7 @@ import { AtlasStore } from '../../../data-access/atlas.store';
 export class ViewToolbarComponent {
   readonly store = inject(AtlasStore);
   readonly labels = computed(() => this.store.options().labels);
+  readonly exploded = computed(() => this.store.options().exploded);
   readonly isolate = computed(() => this.store.options().isolate);
   readonly loading = computed(() => this.store.loading() !== null);
 }

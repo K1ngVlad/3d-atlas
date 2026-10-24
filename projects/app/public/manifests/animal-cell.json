@@ -98,6 +98,20 @@
       }
     },
     {
+      "id": "ribosomes",
+      "entity": "ribosome",
+      "nodes": [
+        "Ribosomes"
+      ],
+      "pick": "select",
+      "label": {
+        "hidden": true
+      },
+      "explode": {
+        "with": "rough-er"
+      }
+    },
+    {
       "id": "smooth-er",
       "entity": "smooth-endoplasmic-reticulum",
       "nodes": [

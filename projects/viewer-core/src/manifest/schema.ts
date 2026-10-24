@@ -36,6 +36,16 @@ export const LabelSchema = z
   })
   .passthrough();
 
+export const ExplodeSchema = z
+  .object({
+    order: z.number().optional(),
+    stay: z.boolean().optional(),
+    with: z.string().optional(),
+    direction: Vec3Schema.optional(),
+    offset: z.number().optional(),
+  })
+  .passthrough();
+
 export const PartSchema = z
   .object({
     id: z.string(),
@@ -47,6 +57,7 @@ export const PartSchema = z
     material: MaterialOverrideSchema.optional(),
     detail: DetailRefSchema.optional(),
     label: LabelSchema.optional(),
+    explode: ExplodeSchema.optional(),
   })
   .passthrough();
 
@@ -98,6 +109,7 @@ export type SelectMode = z.infer<typeof SelectModeSchema>;
 export type MaterialOverride = z.infer<typeof MaterialOverrideSchema>;
 export type DetailRef = z.infer<typeof DetailRefSchema>;
 export type LabelDef = z.infer<typeof LabelSchema>;
+export type ExplodeDef = z.infer<typeof ExplodeSchema>;
 export type PartDef = z.infer<typeof PartSchema>;
 export type CameraDef = z.infer<typeof CameraSchema>;
 export type SceneManifest = z.infer<typeof SceneManifestSchema>;
