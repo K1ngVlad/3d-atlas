@@ -21,6 +21,47 @@ export function fitToObject(
   instant = false,
 ): void {
   const box = new Box3().setFromObject(obj);
+  fitToBox(controls, camera, box, instant);
+}
+
+/**
+ * Габариты видимых мешей с учётом видимости предков. Для заглушек с `include`:
+ * скрытые узлы (весь модельный фон) в габариты не входят — иначе камера
+ * вписывала бы всю модель, а не видимое.
+ */
+export function visibleBounds(root: Object3D): Box3 {
+  root.updateMatrixWorld(true);
+  const box = new Box3().makeEmpty();
+  const tmp = new Box3();
+  const walk = (o: Object3D): void => {
+    if (!o.visible) return; // потомки невидимого three.js тоже не рисует
+    if ((o as Mesh).isMesh) {
+      tmp.setFromObject(o);
+      if (!tmp.isEmpty()) box.union(tmp);
+    }
+    for (const c of o.children) walk(c);
+  };
+  walk(root);
+  return box;
+}
+
+/** Вписывает ВИДИМОЕ содержимое модели (для заглушек с `include`). */
+export function fitToVisible(
+  controls: CameraControls,
+  camera: PerspectiveCamera,
+  root: Object3D,
+  instant = false,
+): void {
+  fitToBox(controls, camera, visibleBounds(root), instant);
+}
+
+/** Общее вписывание готового box (fitToObject / fitToVisible). */
+function fitToBox(
+  controls: CameraControls,
+  camera: PerspectiveCamera,
+  box: Box3,
+  instant = false,
+): void {
   if (box.isEmpty()) return;
   const sphere = box.getBoundingSphere(new Sphere());
   const dist = (sphere.radius / Math.sin(MathUtils.degToRad(camera.fov) / 2)) * 1.1;

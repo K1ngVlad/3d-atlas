@@ -78,6 +78,9 @@ export function resolveManifest(
 ): ResolvedManifest {
   const allNames = new Set<string>(originalNames.values());
 
+  // Предки включённых узлов остаются видимыми (см. проход видимости ниже).
+  const includeAncestors = new Set<Object3D>();
+
   const includeSet: Set<Object3D> | null = manifest.include
     ? (() => {
         const roots = findNodesBySelector(root, originalNames, manifest.include!);
@@ -87,7 +90,17 @@ export function resolveManifest(
           );
         }
         const set = new Set<Object3D>();
-        for (const r of roots) r.traverse((o) => set.add(o));
+        for (const r of roots) {
+          r.traverse((o) => set.add(o));
+          // Предки включённого узла тоже должны остаться видимыми: three.js не
+          // рисует потомков невидимого узла, скрывать можно только узлы ВНЕ
+          // поддеревьев include (иначе заглушки с include — пустая сцена).
+          let ancestor: Object3D | null = r.parent;
+          while (ancestor) {
+            includeAncestors.add(ancestor);
+            ancestor = ancestor.parent;
+          }
+        }
         return set;
       })()
     : null;
@@ -176,10 +189,17 @@ export function resolveManifest(
     }
   }
 
-  // Применяем видимость: вне include или в ignore — скрыто. На кэшированной модели
-  // предыдущую видимость сбрасывает вызов resetModelVisibility.
+  // Применяем видимость. Предки включённых узлов остаются видимыми (но не
+  // привязываются к частям — `isAllowed` для этого не менялся); скрываются
+  // узлы вне поддеревьев `include` и не являющиеся их предками, плюс `ignore`.
   root.traverse((obj) => {
-    if (!isAllowed(obj)) obj.visible = false;
+    if (ignoreSet.has(obj)) {
+      obj.visible = false;
+      return;
+    }
+    if (includeSet && !includeSet.has(obj) && !includeAncestors.has(obj)) {
+      obj.visible = false;
+    }
   });
 
   const defaults = {

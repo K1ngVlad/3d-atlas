@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Vector3 } from 'three';
 import type CameraControls from 'camera-controls';
-import { applyViewState, captureViewState, type ViewStateContext, type ViewerOptions } from './view-state';
+import {
+  applyViewState,
+  captureViewState,
+  ViewOptions,
+  type ViewStateContext,
+  type ViewerOptions,
+} from './view-state';
 import { ViewerError } from './manifest/errors';
 
 function makeControls(pos: [number, number, number], target: [number, number, number]) {
@@ -54,7 +60,7 @@ describe('view-state', () => {
     expect(s.options.hover).toBe(true);
   });
 
-  it('apply вызывает setLookAt, setOptions и setSelection с восстановленными значениями', () => {
+  it('apply вызывает setLookAt, setOptions (только опции уровня) и setSelection с восстановленными значениями', () => {
     const { controls, setLookAt } = makeControls([0, 0, 0], [0, 0, 0]);
     const ctx = makeCtx({ controls });
     applyViewState(ctx, {
@@ -64,12 +70,8 @@ describe('view-state', () => {
       selection: { partId: 'mito', instance: 'Mitochondrion.2' },
     });
     expect(setLookAt).toHaveBeenCalledWith(7, 8, 9, 10, 11, 12, false);
-    expect(ctx.setOptions).toHaveBeenCalledWith({
-      labels: false,
-      exploded: true,
-      hover: false,
-      isolate: true,
-    });
+    // общие опции (labels, hover) из состояния НЕ применяются — только уровня
+    expect(ctx.setOptions).toHaveBeenCalledWith({ exploded: true, isolate: true });
     expect(ctx.setSelection).toHaveBeenCalledWith(
       { partId: 'mito', instance: 'Mitochondrion.2' },
       { fly: false },
@@ -121,5 +123,42 @@ describe('view-state', () => {
   it('capture бросает ViewerError, если манифест не загружен', () => {
     const ctx = makeCtx({ manifestId: null });
     expect(() => captureViewState(ctx)).toThrow(ViewerError);
+  });
+});
+
+describe('ViewOptions (решение 36)', () => {
+  const base: ViewerOptions = { labels: true, exploded: false, hover: true, isolate: false };
+
+  it('set меняет опции и шлёт полный снимок наружу', () => {
+    const seen: ViewerOptions[] = [];
+    const vo = new ViewOptions((o) => seen.push(o), { ...base });
+    vo.set({ exploded: true });
+    expect(vo.value.exploded).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toEqual({ labels: true, exploded: true, hover: true, isolate: false });
+  });
+
+  it('resetLevel (load без restore): exploded/isolate сброшены, labels/hover прежние', () => {
+    // Тест roadmap: exploded: true → load(другой манифест) → exploded === false, labels прежний
+    const seen: ViewerOptions[] = [];
+    const vo = new ViewOptions((o) => seen.push(o), { ...base });
+    vo.set({ exploded: true, isolate: true, labels: false });
+    vo.resetLevel();
+    expect(vo.value).toEqual({ labels: false, exploded: false, hover: true, isolate: false });
+    expect(seen.at(-1)).toEqual(vo.value);
+  });
+
+  it('applyLevel (restoreViewState): применяются только опции уровня', () => {
+    const seen: ViewerOptions[] = [];
+    const vo = new ViewOptions((o) => seen.push(o), { ...base, labels: false });
+    vo.applyLevel({
+      manifestId: 'x',
+      camera: { position: [0, 0, 0], target: [0, 0, 0] },
+      options: { labels: true, exploded: true, hover: false, isolate: true },
+      selection: null,
+    });
+    // labels/hover из состояния проигнорированы — общие остаются текущими
+    expect(vo.value).toEqual({ labels: false, exploded: true, hover: true, isolate: true });
+    expect(seen.at(-1)).toEqual(vo.value);
   });
 });

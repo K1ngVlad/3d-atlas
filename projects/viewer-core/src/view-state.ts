@@ -17,6 +17,47 @@ export const DEFAULT_OPTIONS: ViewerOptions = {
   isolate: false,
 };
 
+/** Опции уровня — сбрасываются при `load` без `restore`; общие переносятся между уровнями. */
+export const LEVEL_OPTION_KEYS = ['exploded', 'isolate'] as const;
+
+/**
+ * Опции вида — единый источник состояния (решение 36): хранит ядро, любое
+ * изменение (setOptions, restoreViewState, load, сброс уровня) уходит наружу
+ * через onChange, приложение лишь отражает его в сигналах.
+ */
+export class ViewOptions {
+  private current: ViewerOptions;
+
+  constructor(
+    private readonly onChange: (o: ViewerOptions) => void,
+    initial: ViewerOptions = { ...DEFAULT_OPTIONS },
+  ) {
+    this.current = { ...initial };
+  }
+
+  get value(): ViewerOptions {
+    return this.current;
+  }
+
+  set(partial: Partial<ViewerOptions>): void {
+    this.current = { ...this.current, ...partial };
+    this.onChange({ ...this.current });
+  }
+
+  /** `load` без restore: сброс опций уровня, общие (`labels`, `hover`) прежние. */
+  resetLevel(): void {
+    this.set({ exploded: false, isolate: false });
+  }
+
+  /** `restoreViewState`: применяются ТОЛЬКО опции уровня, общие остаются текущими. */
+  applyLevel(s: ViewState): void {
+    this.set({
+      exploded: s.options.exploded,
+      isolate: s.options.isolate,
+    });
+  }
+}
+
 export interface Selection {
   partId: string;
   instance?: string;
@@ -85,7 +126,9 @@ export function applyViewState(ctx: ViewStateContext, s: ViewState): void {
   }
   // Порядок важен: расслоение применяется МГНОВЕННО до установки камеры,
   // позиция «камеры до расслоения» — из состояния (04-viewer-core.md).
-  ctx.setOptions(s.options);
+  // Опции: восстанавливаются ТОЛЬКО опции уровня (`exploded`, `isolate`),
+  // общие (`labels`, `hover`) остаются текущими (решение 36).
+  ctx.setOptions({ exploded: s.options.exploded, isolate: s.options.isolate });
   ctx.setExplodedInstant(s.options.exploded);
   ctx.setCameraBeforeExplode(s.cameraBeforeExplode ?? null);
   const [px, py, pz] = s.camera.position;

@@ -195,4 +195,37 @@ describe('resolveManifest', () => {
       'Nucleolus_mesh',
     ]);
   });
+
+  it('include: предки включённого узла остаются видимыми, остальное скрыто', () => {
+    // Заглушка ядра: include ["Nucleus"]. three.js не рисует потомков невидимого
+    // узла — скрывать можно только узлы вне поддеревьев include.
+    const { root, names } = makeScene();
+    const manifest: SceneManifest = {
+      ...base,
+      include: 'Nucleus',
+      parts: [{ id: 'nucleus', nodes: 'Nucleus', pick: 'select' }],
+    } as SceneManifest;
+    resolveManifest(manifest, root, names);
+    const byName = (n: string) => root.getObjectByName(n)!;
+    expect(byName('Root').visible).toBe(true); // предок включённого узла
+    expect(byName('Nucleus').visible).toBe(true);
+    expect(byName('Nucleolus').visible).toBe(true);
+    expect(byName('Nucleolus_mesh').visible).toBe(true); // меши ядра видимы
+    expect(byName('Mitochondria').visible).toBe(false);
+    expect(byName('Mitochondrion.1_mesh').visible).toBe(false);
+    expect(byName('Ribosomes').visible).toBe(false);
+  });
+
+  it('include: части привязываются только внутри поддерева, предки — нет', () => {
+    const { root, names } = makeScene();
+    const manifest: SceneManifest = {
+      ...base,
+      include: 'Nucleus',
+      parts: [
+        { id: 'nucleus', nodes: 'Nucleus', pick: 'select' },
+        { id: 'wrap', nodes: 'Root', pick: 'select' },
+      ],
+    } as SceneManifest;
+    expect(() => resolveManifest(manifest, root, names)).toThrow(ManifestError);
+  });
 });

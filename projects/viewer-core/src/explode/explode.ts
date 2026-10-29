@@ -1,5 +1,6 @@
 import { Box3, Matrix3, Matrix4, Mesh, Object3D, Vector3 } from 'three';
 import type { PartDef, Vec3 } from '../manifest/schema';
+import { visibleBounds } from '../camera/fit';
 
 /**
  * Расслоение (explode): целевые смещения частей вычисляются из манифеста
@@ -344,7 +345,9 @@ export class ExplodeAnimator {
     this.appliedFactor = -1;
     this.apply();
     root.updateMatrixWorld(true);
-    const b = new Box3().setFromObject(root);
+    // Видимое, а не вся модель: у заглушек с include скрыт фон, он не должен
+    // раздувать габариты для камеры.
+    const b = visibleBounds(root);
     this.currentFactor = prev;
     this.appliedFactor = -1;
     this.apply();

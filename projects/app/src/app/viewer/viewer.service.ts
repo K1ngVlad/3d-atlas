@@ -37,6 +37,12 @@ export class ViewerService {
   readonly error = signal<ViewerError | null>(null);
   readonly hover = signal<Selection | null>(null);
   readonly selection = signal<Selection | null>(null);
+  readonly options = signal<ViewerOptions>({
+    labels: true,
+    exploded: false,
+    hover: true,
+    isolate: false,
+  });
   readonly openDetailRequest = signal<OpenDetailRequest | null>(null);
   readonly labels = signal<LabelPosition[]>([]);
 
@@ -150,6 +156,10 @@ export class ViewerService {
           return;
         case 'select':
           this.selection.set(e.selection);
+          return;
+        case 'options':
+          // опции — источник ядро, приложение лишь отражает (решение 36)
+          this.options.set(e.options);
           return;
         case 'open-detail':
           this.openDetailRequest.set({

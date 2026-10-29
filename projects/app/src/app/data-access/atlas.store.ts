@@ -82,12 +82,9 @@ export class AtlasStore {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly stack = signal<LevelFrame[]>([]);
-  readonly options = signal<ViewerOptions>({
-    labels: true,
-    exploded: false,
-    hover: true,
-    isolate: false,
-  });
+  // Опции вида — отражение состояния ядра (решение 36): меняются только
+  // событиями 'options', собственной копии у стора нет.
+  readonly options = this.viewer.options;
   readonly panelOpen = signal<boolean>(readSessionBool(SESSION_PANEL_OPEN, true));
   readonly loading = this.viewer.loading;
   readonly error = this.viewer.error;
@@ -157,9 +154,6 @@ export class AtlasStore {
         if (!isAtlasUrl(e.urlAfterRedirects)) return;
         this.debug.set(/[?&]debug=manifest(?:&|$)/.test(e.urlAfterRedirects));
       });
-
-    // синхронизация ViewerOptions с ядром
-    effect(() => this.viewer.setOptions(this.options()));
 
     // обновление rootEntity при смене current manifest; попутно — title для крошек
     effect(() => {
@@ -289,7 +283,8 @@ export class AtlasStore {
   }
 
   toggleOption<K extends keyof ViewerOptions>(key: K): void {
-    this.options.update((o) => ({ ...o, [key]: !o[key] }));
+    // переключение — через ядро; сигнал обновится событием 'options' (решение 36)
+    this.viewer.setOptions({ [key]: !this.viewer.options()[key] } as Partial<ViewerOptions>);
   }
 
   resetCamera(): void {

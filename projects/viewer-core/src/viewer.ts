@@ -23,7 +23,7 @@ import { createModelCache, type ModelCache } from './scene/model-cache';
 import { pickPart } from './picking/raycast';
 import { attachClickDetector } from './picking/click-detector';
 import { VisualState } from './highlight/visual-state';
-import { fitToObject, fitBoxKeepView, flyToMeshes, flyToBox, ZERO_INSETS, type ViewportInsets } from './camera/fit';
+import { fitToVisible, fitBoxKeepView, flyToMeshes, flyToBox, ZERO_INSETS, type ViewportInsets } from './camera/fit';
 import {
   resolveManifest,
   resetModelVisibility,
@@ -35,7 +35,7 @@ import { detailId as readDetailId } from './manifest/schema';
 import {
   applyViewState,
   captureViewState,
-  DEFAULT_OPTIONS,
+  ViewOptions,
   type CameraPose,
   type Selection,
   type ViewerOptions,
@@ -58,6 +58,7 @@ export type { LabelPosition } from './labels/project';
 export type ViewerEvent =
   | { type: 'hover'; selection: Selection | null }
   | { type: 'select'; selection: Selection | null }
+  | { type: 'options'; options: ViewerOptions }
   | { type: 'open-detail'; partId: string; detailId: string }
   | { type: 'load-progress'; loaded: number; total: number }
   | { type: 'loaded' }
@@ -158,7 +159,6 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   let partDetail = new Map<string, string>();
   let partHoverable = new Map<string, boolean>();
 
-  let options: ViewerOptions = { ...DEFAULT_OPTIONS };
   let insets: ViewportInsets = { ...ZERO_INSETS };
   let selection: Selection | null = null;
   let hoverSel: Selection | null = null;
@@ -204,19 +204,24 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   // 'controlstart' не эмитит). Отмечает, что авто-возврат камеры при выключении
   // расслоения делать не нужно (решение 35).
   const onUserCameraStart = () => {
-    if (options.exploded) cameraTouchedSinceExplode = true;
+    if (optionsState.value.exploded) cameraTouchedSinceExplode = true;
   };
   controls.addEventListener('controlstart', onUserCameraStart);
   canvas.addEventListener('wheel', onUserCameraStart, { passive: true });
 
+  // Опции вида — единый источник состояния (решение 36): хранятся в ядре,
+  // любое изменение (setOptions, restoreViewState, load, сброс уровня) уходит
+  // наружу событием 'options'; приложение только отражает его в сигналах.
+  const optionsState = new ViewOptions((o) => emit({ type: 'options', options: o }));
+
   const applyVisualTargets = () => {
     if (!visual) return;
     const canHover =
-      options.hover && hoverSel !== null && (partHoverable.get(hoverSel.partId) ?? true);
+      optionsState.value.hover && hoverSel !== null && (partHoverable.get(hoverSel.partId) ?? true);
     visual.setTargets({
       hover: canHover && hoverSel ? partKey(hoverSel.partId, hoverSel.instance) : null,
       selected: selection ? partKey(selection.partId, selection.instance) : null,
-      dimOthers: selection !== null && options.isolate,
+      dimOthers: selection !== null && optionsState.value.isolate,
     });
     requestRender();
   };
@@ -242,7 +247,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   // один раз на переход (сноски выключены / якорей нет / смена манифеста),
   // а не каждый кадр (roadmap, «Долг после шага 3»).
   const notifyFrameListeners = () => {
-    if (!options.labels || anchors.length === 0 || !activeModel) {
+    if (!optionsState.value.labels || anchors.length === 0 || !activeModel) {
       if (!notifiedEmpty) {
         notifiedEmpty = true;
         emitLabels([]);
@@ -273,7 +278,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
   // Hover
   const onPointerMove = (ev: PointerEvent) => {
     if (!resolved || !activeModel) return;
-    if (!options.hover) {
+    if (!optionsState.value.hover) {
       if (hoverSel) {
         hoverSel = null;
         applyVisualTargets();
@@ -417,7 +422,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       controls.setLookAt(px, py, pz, tx, ty, tz, !instant);
       requestRender();
     } else if (activeModel) {
-      fitToObject(controls, camera, activeModel.root, instant);
+      fitToVisible(controls, camera, activeModel.root, instant);
     }
     cameraBeforeExplode = null;
   };
@@ -428,7 +433,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     applyVisualTargets();
     if (opts.fly) {
       if (sel) flyToSelection(sel);
-      else if (activeModel) fitToObject(controls, camera, activeModel.root);
+      else if (activeModel) fitToVisible(controls, camera, activeModel.root);
     }
     if (changed) emit({ type: 'select', selection });
   };
@@ -469,7 +474,9 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     if (cam?.position && cam?.target) {
       controls.setLookAt(...cam.position, ...cam.target, false);
     } else {
-      fitToObject(controls, camera, root, true);
+      // Видимое, а не вся модель: для заглушек с include камера вписывает
+      // только включённое поддерево (решение: заглушки с include, roadmap).
+      fitToVisible(controls, camera, root, true);
     }
     if (cam?.minDistance != null) controls.minDistance = cam.minDistance;
     if (cam?.maxDistance != null) controls.maxDistance = cam.maxDistance;
@@ -575,19 +582,27 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       const [px, py, pz] = restore.camera.position;
       const [tx, ty, tz] = restore.camera.target;
       controls.setLookAt(px, py, pz, tx, ty, tz, false);
-      options = { ...options, ...restore.options };
+      // Опции: восстанавливаются ТОЛЬКО опции уровня, общие остаются текущими
+      // (решение 36); изменение уходит наружу событием 'options' из ViewOptions.
+      optionsState.applyLevel(restore);
       selection = restore.selection ? { ...restore.selection } : null;
       cameraBeforeExplode = restore.cameraBeforeExplode ?? null;
       cameraTouchedSinceExplode = false;
       // Расслоение из восстановленного состояния — МГНОВЕННО, до первого кадра
       // (02-ux-spec.md): уровень возвращается как был, без анимации.
-      explode?.setExploded(options.exploded, { instant: true });
+      explode?.setExploded(optionsState.value.exploded, { instant: true });
     } else {
+      // load без restore: опции уровня сбрасываются, общие переносятся
+      // (решение 36) — событие 'options' уходит из resetLevel().
+      optionsState.resetLevel();
       applyCamera(manifest, loaded.root);
-      explode?.setExploded(options.exploded);
+      explode?.setExploded(optionsState.value.exploded);
     }
     applyVisualTargets();
     requestRender();
+    // Выбор после загрузки/восстановления — тем же событием 'select', чтобы
+    // приложение отражало его без собственной копии состояния (решение 36).
+    emit({ type: 'select', selection });
     // Если модель только что подгружена в этом вызове, прогресса ещё раз не шлём —
     // достаточно того, что уже вылетело из onProgress; теперь — финальный loaded.
     void cachedBefore;
@@ -604,7 +619,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
     },
     controls,
     get options() {
-      return options;
+      return optionsState.value;
     },
     get selection() {
       return selection;
@@ -613,10 +628,10 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       return cameraBeforeExplode;
     },
     setOptions(o) {
-      options = { ...options, ...o };
+      optionsState.set(o);
       if (o.exploded !== undefined && explode && !applyingState) {
-        explode.setExploded(options.exploded);
-        applyExplodeCamera(options.exploded);
+        explode.setExploded(optionsState.value.exploded);
+        applyExplodeCamera(optionsState.value.exploded);
       }
       applyVisualTargets();
     },
@@ -682,7 +697,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       insets = { ...insets, ...i };
     },
     resetCamera() {
-      if (activeModel) fitToObject(controls, camera, activeModel.root);
+      if (activeModel) fitToVisible(controls, camera, activeModel.root);
     },
     getViewState() {
       return captureViewState(ctx);
@@ -702,7 +717,7 @@ export function createViewer(canvas: HTMLCanvasElement, config: ViewerConfig = {
       }
     },
     getLabelPositions() {
-      if (!options.labels || anchors.length === 0 || !activeModel) return [];
+      if (!optionsState.value.labels || anchors.length === 0 || !activeModel) return [];
       return computeLabels(true);
     },
     pickSurface(clientX, clientY) {
