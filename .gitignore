@@ -48,3 +48,7 @@ deploy/.env
 .claude/settings.local.json
 **/bin/
 **/obj/
+
+# Generated Prisma client
+services/quiz/src/generated/
+services/quiz/dist/

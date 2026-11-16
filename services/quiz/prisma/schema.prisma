@@ -1,0 +1,9 @@
+// Tables are added in stage 2 (contracts.md, "Quiz Service").
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
