@@ -1,0 +1,132 @@
+name: atlas
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:18.7-alpine
+    <<: *restart
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
+      QUIZ_DB_PASSWORD: ${QUIZ_DB_PASSWORD}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine
+    <<: *restart
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  consul:
+    image: hashicorp/consul:1.22.7
+    <<: *restart
+    command: ["agent", "-dev", "-client=0.0.0.0", "-ui"]
+    ports:
+      - "8500:8500"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8500/v1/status/leader"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # MinIO: the pinned minio/minio:RELEASE.2025-04-22T22-12-26Z (decision 42) was removed from docker.io
+  # and quay.io now requires authentication, so the drop-in fork pgsty/minio is used (decision 45).
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    <<: *restart
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  catalog:
+    build:
+      context: ..
+      dockerfile: services/catalog/Dockerfile
+    <<: *restart
+    environment:
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=catalog_db;Username=catalog;Password=${CATALOG_DB_PASSWORD}
+      CONSUL_HTTP_ADDR: http://consul:8500
+    depends_on:
+      postgres: { condition: service_healthy }
+      consul: { condition: service_healthy }
+
+  quiz:
+    build:
+      context: ..
+      dockerfile: services/quiz/Dockerfile
+    <<: *restart
+    environment:
+      DATABASE_URL: postgresql://quiz:${QUIZ_DB_PASSWORD}@postgres:5432/quiz_db
+      CONSUL_HTTP_ADDR: http://consul:8500
+    depends_on:
+      postgres: { condition: service_healthy }
+      consul: { condition: service_healthy }
+
+  analytics:
+    build:
+      context: ..
+      dockerfile: services/analytics/Dockerfile
+    <<: *restart
+    environment:
+      DATABASE_URL: postgresql+asyncpg://analytics:${ANALYTICS_DB_PASSWORD}@postgres:5432/analytics_db
+      CONSUL_HTTP_ADDR: http://consul:8500
+    depends_on:
+      postgres: { condition: service_healthy }
+      consul: { condition: service_healthy }
+
+  web:
+    build:
+      context: ..
+      dockerfile: projects/app/Dockerfile
+    <<: *restart
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: services/gateway/Dockerfile
+    <<: *restart
+    environment:
+      CONSUL_HTTP_ADDR: http://consul:8500
+    ports:
+      - "8080:8080"
+    depends_on:
+      consul: { condition: service_healthy }
+      minio: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  rabbitmq-data:
+  minio-data:

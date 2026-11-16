@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.angular
+**/.git
+**/bin
+**/obj
+**/__pycache__
+**/.venv
+**/*.log
+deploy/.env
