@@ -18,6 +18,7 @@
 | Бэкенд и микросервисы (для лабораторной, не сейчас) | `docs/06-backend.md` |
 | Модели, источники, лицензии | `docs/07-models-and-licensing.md` |
 | Разбор конкретной модели (части, имена узлов, подготовка) | `docs/models/<model>.md` |
+| Лабораторная: план, контракты, этапы | `docs/lab/README.md` |
 | Принятые решения и почему (не пересматривать без причины) | `docs/decisions.md` |
 | План работ и текущий этап | `docs/roadmap.md` |
 
@@ -40,6 +41,8 @@ projects/
       manifests/ # манифесты сцен (JSON)
       content/   # тексты сущностей (JSON)
 tools/           # скрипты подготовки моделей (prepare-*, inspect)
+services/        # микросервисы лабораторной (gateway, catalog, quiz, analytics)
+deploy/          # docker compose, .env.example, init-скрипты, smoke.mjs
 docs/
 ```
 
