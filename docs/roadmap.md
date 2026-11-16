@@ -164,7 +164,7 @@
 - [ ] Проверка: повторное открытие без сети, вкладка Network пуста при повторной загрузке
 
 ## Этап 9. Лабораторная
-- [ ] Этап 0. Каркас и инфраструктура — `docs/lab/stage-0-infra.md`
+- [x] Этап 0. Каркас и инфраструктура — `docs/lab/stage-0-infra.md`
 - [ ] Этап 1. Catalog + Gateway + клиент — `docs/lab/stage-1-catalog-gateway.md`
 - [ ] Этап 2. Quiz + экран тестов — `docs/lab/stage-2-quiz.md`
 - [ ] Этап 3. Брокер + Analytics + экран аналитики — `docs/lab/stage-3-broker-analytics.md`
