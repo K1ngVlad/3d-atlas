@@ -102,9 +102,11 @@ services:
     <<: *restart
     environment:
       DATABASE_URL: postgresql+asyncpg://analytics:${ANALYTICS_DB_PASSWORD}@postgres:5432/analytics_db
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       CONSUL_HTTP_ADDR: http://consul:8500
     depends_on:
       postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
       consul: { condition: service_healthy }
 
   web:

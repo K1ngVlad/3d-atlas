@@ -1,4 +1,5 @@
 """Consul registration (contracts.md): retries on start, re-register every 30 s, deregister on shutdown."""
+
 import asyncio
 import logging
 import os
