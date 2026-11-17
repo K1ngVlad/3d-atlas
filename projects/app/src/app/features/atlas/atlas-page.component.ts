@@ -4,7 +4,7 @@ import { BreadcrumbsComponent } from '../../shared/ui/breadcrumbs/breadcrumbs.co
 import { InfoPanelComponent } from '../../shared/ui/info-panel/info-panel.component';
 import { ViewToolbarComponent } from '../../shared/ui/view-toolbar/view-toolbar.component';
 import { LabelLayerComponent } from '../../viewer/label-layer.component';
-import { ViewerHostComponent } from '../../viewer/viewer-host.component';
+import { PANEL_WIDTH_PX, ViewerHostComponent } from '../../viewer/viewer-host.component';
 import { DebugOverlayComponent } from './debug-overlay.component';
 
 @Component({
@@ -19,8 +19,20 @@ import { DebugOverlayComponent } from './debug-overlay.component';
   ],
   template: `
     <div class="stage">
-      <app-viewer-host></app-viewer-host>
-      <app-label-layer></app-label-layer>
+      <app-viewer-host
+        owner="atlas"
+        [rightInset]="store.panelOpen() ? panelWidth : 0"
+        [debug]="store.debug()"
+        (attached)="store.onViewerAttached()"
+      ></app-viewer-host>
+      <app-label-layer
+        [manifest]="store.current()?.manifest ?? null"
+        [titles]="currentPartTitles()"
+        [existingDetails]="store.existingDetails()"
+        [debug]="store.debug()"
+        (picked)="store.select($event)"
+        (detailRequested)="store.openDetail($event.partId, $event.detailId)"
+      ></app-label-layer>
 
       <div class="top-left">
         <app-breadcrumbs></app-breadcrumbs>
@@ -101,6 +113,19 @@ import { DebugOverlayComponent } from './debug-overlay.component';
 })
 export class AtlasPageComponent {
   readonly store = inject(AtlasStore);
+  readonly panelWidth = PANEL_WIDTH_PX;
+  /** Названия частей текущего уровня: partId → название (ключи стора — `${manifestId}/${partId}`). */
+  readonly currentPartTitles = computed<ReadonlyMap<string, string>>(() => {
+    const cur = this.store.current();
+    const all = this.store.partTitles();
+    const out = new Map<string, string>();
+    if (!cur) return out;
+    const prefix = `${cur.manifestId}/`;
+    for (const [key, title] of all) {
+      if (key.startsWith(prefix)) out.set(key.slice(prefix.length), title);
+    }
+    return out;
+  });
   readonly loadingVisible = computed(() => {
     if (this.store.error()) return null;
     return this.store.loading();

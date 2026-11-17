@@ -5,10 +5,16 @@ import {
   computed,
   inject,
   input,
+  output,
 } from '@angular/core';
-import { detailId as readDetailId, type Selection } from '@atlas/viewer-core';
-import { AtlasStore } from '../data-access/atlas.store';
+import { detailId as readDetailId, type SceneManifest, type Selection } from '@atlas/viewer-core';
 import { ViewerService } from './viewer.service';
+
+/** Запрос двойного клика по сноске: открыть детальный уровень части. */
+export interface LabelDetailRequest {
+  partId: string;
+  detailId: string;
+}
 
 interface LabelView {
   key: string;
@@ -84,6 +90,7 @@ interface MotionState {
         <button
           type="button"
           class="label"
+          [class.passive]="!interactive()"
           [class.dimmed]="v.dimmed"
           [class.selected]="v.selected"
           [class.hovered]="v.hovered"
@@ -169,6 +176,10 @@ interface MotionState {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .label.passive {
+      pointer-events: none;
+      cursor: default;
+    }
     .label.dimmed {
       opacity: 0.45;
     }
@@ -202,14 +213,25 @@ interface MotionState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LabelLayerComponent {
-  private readonly store = inject(AtlasStore);
   private readonly viewer = inject(ViewerService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** Длина выноски: расстояние от точки привязки до подписи, px. */
   readonly leaderLength = input(256);
+  /** Манифест, загруженный в ядро (части, детальные уровни, ключ сглаживания). */
+  readonly manifest = input<SceneManifest | null>(null);
+  /** Названия частей текущего манифеста: partId → текст сноски. */
+  readonly titles = input<ReadonlyMap<string, string>>(new Map());
+  /** Детальные манифесты, которые точно есть (значок лупы, двойной клик). */
+  readonly existingDetails = input<ReadonlySet<string>>(new Set());
+  /** Показывать только сноску этого выбора (тест: сноска выделенной части). */
+  readonly only = input<Selection | null>(null);
+  /** Сноски кликабельны (выбор, наведение, детальный уровень). */
+  readonly interactive = input(true);
+  readonly debug = input(false);
 
-  readonly debug = this.store.debug;
+  readonly picked = output<Selection>();
+  readonly detailRequested = output<LabelDetailRequest>();
 
   // Состояние стабилизации (сторона, сглаженные координаты). Живёт вне сигналов:
   // сноски прилетают с каждым отрисованным кадром, обновление и так каждый кадр.
@@ -217,32 +239,39 @@ export class LabelLayerComponent {
   private motionManifestId: string | null = null;
 
   readonly views = computed<LabelView[]>(() => {
-    const positions = this.viewer.labels();
-    const cur = this.store.current();
-    if (!this.store.options().labels || !cur || positions.length === 0) {
+    const only = this.only();
+    const positions = this.viewer
+      .labels()
+      .filter(
+        (p) =>
+          !only ||
+          (p.partId === only.partId && (p.instance ?? undefined) === (only.instance ?? undefined)),
+      );
+    const manifest = this.manifest();
+    if (!this.viewer.options().labels || !manifest || positions.length === 0) {
       this.motion.clear();
       return [];
     }
-    if (this.motionManifestId !== cur.manifestId) {
+    if (this.motionManifestId !== manifest.id) {
       this.motion.clear();
-      this.motionManifestId = cur.manifestId;
+      this.motionManifestId = manifest.id;
     }
     const width = this.host.nativeElement.clientWidth || 1024;
     const height = this.host.nativeElement.clientHeight || 768;
     const leader = Math.max(24, this.leaderLength());
     const now = performance.now();
 
-    const parts = cur.manifest.parts;
-    const selection = this.store.selection();
-    const hoverSel = this.store.hover();
-    const titles = this.store.partTitles();
-    const existingDetails = this.store.existingDetails();
+    const parts = manifest.parts;
+    const selection = this.viewer.selection();
+    const hoverSel = this.viewer.hover();
+    const titles = this.titles();
+    const existingDetails = this.existingDetails();
 
     const raw = positions.map((p) => {
       const part = parts.find((x) => x.id === p.partId);
       const sel: Selection = { partId: p.partId, instance: p.instance };
       const detail = part ? readDetailId(part.detail) : null;
-      const text = titles.get(`${cur.manifestId}/${p.partId}`) ?? part?.entity ?? p.partId;
+      const text = titles.get(p.partId) ?? part?.entity ?? p.partId;
       const hasDetail = detail !== null && existingDetails.has(detail);
       const sameSel = (s: Selection | null) =>
         s !== null &&
@@ -345,18 +374,18 @@ export class LabelLayerComponent {
   });
 
   pick(v: LabelView): void {
-    this.store.select(v.sel);
+    if (this.interactive()) this.picked.emit(v.sel);
   }
 
   openDetail(v: LabelView): void {
-    const cur = this.store.current();
-    const part = cur?.manifest.parts.find((p) => p.id === v.sel.partId);
+    if (!this.interactive()) return;
+    const part = this.manifest()?.parts.find((p) => p.id === v.sel.partId);
     const detailId = part ? readDetailId(part.detail) : null;
-    if (!detailId || !this.store.existingDetails().has(detailId)) return;
-    void this.store.openDetail(v.sel.partId, detailId);
+    if (!detailId || !this.existingDetails().has(detailId)) return;
+    this.detailRequested.emit({ partId: v.sel.partId, detailId });
   }
 
   hover(v: LabelView, on: boolean): void {
-    this.viewer.setHover(on ? v.sel : null);
+    if (this.interactive()) this.viewer.setHover(on ? v.sel : null);
   }
 }

@@ -24,6 +24,12 @@ export interface ViewportInsets {
   bottom?: number;
 }
 
+/**
+ * Кто сейчас управляет просмотрщиком. Сторы фич реагируют на события ядра,
+ * только когда владелец — они (docs/lab/quiz-ux.md, «Технические требования»).
+ */
+export type ViewerOwner = 'atlas' | 'quiz';
+
 export interface OpenDetailRequest {
   partId: string;
   detailId: string;
@@ -45,6 +51,8 @@ export class ViewerService {
   });
   readonly openDetailRequest = signal<OpenDetailRequest | null>(null);
   readonly labels = signal<LabelPosition[]>([]);
+  /** Активный владелец просмотрщика; `null` — холста на экране нет. */
+  readonly owner = signal<ViewerOwner | null>(null);
 
   private viewer: Viewer | null = null;
   private unsub: (() => void) | null = null;
@@ -117,6 +125,11 @@ export class ViewerService {
   /** Программное наведение (сноска подсвечивает меш и наоборот). */
   setHover(sel: Selection | null): void {
     this.viewer?.hover(sel);
+  }
+
+  /** Экземпляры части (`select: "each"`); `''` — часть целиком. */
+  listInstances(partId: string): string[] {
+    return this.viewer?.listInstances(partId) ?? [];
   }
 
   setOptions(o: Partial<ViewerOptions>): void {
