@@ -1,5 +1,7 @@
 using Gateway;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://+:8080");
@@ -7,7 +9,16 @@ builder.WebHost.UseUrls("http://+:8080");
 // Routes and clusters: appsettings "ReverseProxy"; destinations of Consul clusters: ConsulDiscoveryService.
 builder.Services.AddSingleton<ConsulProxyConfigProvider>();
 builder.Services.AddSingleton<IProxyConfigProvider>(sp => sp.GetRequiredService<ConsulProxyConfigProvider>());
+builder.Services.AddSingleton<IForwarderHttpClientFactory, GatewayHttpClientFactory>();
 builder.Services.AddReverseProxy();
+// Passive health checks (cluster "HealthCheck.Passive" in appsettings): with the defaults (10 requests
+// in 60 s) a stopped instance would keep getting traffic in a demo; a 30 % failure rate over 2+ requests marks it.
+builder.Services.Configure<TransportFailureRateHealthPolicyOptions>(o =>
+{
+    o.DetectionWindowSize = TimeSpan.FromSeconds(30);
+    o.MinimalTotalCountThreshold = 2;
+    o.DefaultFailureRateLimit = 0.3;
+});
 builder.Services.AddHostedService<ConsulDiscoveryService>();
 builder.Services.AddHostedService<ConsulRegistrar>();
 
@@ -27,7 +38,7 @@ app.Use(async (ctx, next) =>
 app.MapGet("/health", () => Results.Json(new { status = "ok" }));
 app.MapReverseProxy(pipeline =>
 {
-    pipeline.Use(ProxyErrors.NoInstancesAsJson);
+    pipeline.Use(ProxyErrors.Handle);
     pipeline.UseSessionAffinity();
     pipeline.UseLoadBalancing();
     pipeline.UsePassiveHealthChecks();

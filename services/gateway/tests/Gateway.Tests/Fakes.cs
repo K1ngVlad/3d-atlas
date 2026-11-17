@@ -17,11 +17,11 @@ public abstract class FakeServer : IAsyncDisposable
     public int Port { get; private set; }
     public string Url => $"http://127.0.0.1:{Port}";
 
-    protected FakeServer()
+    protected FakeServer(int port = 0)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         App = builder.Build();
     }
 
@@ -39,7 +39,7 @@ public sealed class FakeUpstream : FakeServer
 {
     public const int ModelSize = 123_457;
 
-    private FakeUpstream(string name)
+    private FakeUpstream(string name, int port) : base(port)
     {
         App.Use(async (ctx, next) =>
         {
@@ -50,9 +50,9 @@ public sealed class FakeUpstream : FakeServer
         App.MapGet("/{**rest}", (HttpContext ctx) => Results.Json(new { instance = name, path = ctx.Request.Path.Value }));
     }
 
-    public static async Task<FakeUpstream> StartAsync(string name)
+    public static async Task<FakeUpstream> StartAsync(string name, int port = 0)
     {
-        var s = new FakeUpstream(name);
+        var s = new FakeUpstream(name, port);
         await s.StartServerAsync();
         return s;
     }
