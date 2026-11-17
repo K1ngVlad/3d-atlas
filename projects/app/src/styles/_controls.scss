@@ -1,0 +1,95 @@
+// Общие элементы панелей (тесты, аналитика): кнопки, надзаголовки, скелетон.
+// Вынесены глобально, чтобы не дублировать стили в каждом компоненте.
+
+.atlas-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--atlas-space-xs);
+  min-height: var(--atlas-touch-target);
+  padding: 0 var(--atlas-space-lg);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-sm);
+  background: var(--atlas-color-surface);
+  color: var(--atlas-color-text);
+  font: 500 14px/1.2 var(--atlas-font-family);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--atlas-color-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--atlas-color-accent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--primary {
+    background: var(--atlas-color-accent);
+    border-color: var(--atlas-color-accent);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: var(--atlas-color-accent-dark);
+      border-color: var(--atlas-color-accent-dark);
+    }
+  }
+
+  &--text {
+    border-color: transparent;
+    background: transparent;
+    color: var(--atlas-color-accent);
+
+    &:hover:not(:disabled) {
+      border-color: transparent;
+      background: var(--atlas-color-accent-bg);
+    }
+  }
+}
+
+.atlas-overline {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--atlas-color-text-muted);
+}
+
+.atlas-muted {
+  color: var(--atlas-color-text-muted);
+}
+
+.atlas-skeleton {
+  border-radius: var(--atlas-radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--atlas-color-bg) 25%,
+    var(--atlas-color-border) 50%,
+    var(--atlas-color-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: atlas-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes atlas-skeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-skeleton {
+    animation: none;
+  }
+}

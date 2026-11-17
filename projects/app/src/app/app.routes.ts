@@ -8,8 +8,7 @@ export const routes: Routes = [
   },
   {
     path: 'quiz',
-    loadComponent: () =>
-      import('./features/quiz/quiz-page.component').then(m => m.QuizPageComponent),
+    loadChildren: () => import('./features/quiz/quiz.routes').then(m => m.QUIZ_ROUTES),
   },
   {
     path: 'upload',

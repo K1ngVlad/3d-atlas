@@ -12,6 +12,12 @@ $atlas-colors: (
   accent: #1d6a85,
   accent-dark: #134b5f,
   accent-bg: #e3f0f5,
+  // «Верно» / «неверно» в тестах (quiz-ux.md). Контраст текста на своём фоне
+  // и на surface ≥ 4.5:1: success/success-bg 5.5, danger/danger-bg 5.6.
+  success: #1b6e3a,
+  success-bg: #e6f4ea,
+  danger: #b3261e,
+  danger-bg: #fce8e6,
 );
 
 $atlas-radii: (
