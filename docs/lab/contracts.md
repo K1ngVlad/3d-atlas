@@ -166,17 +166,26 @@ Exchange `catalog.events` (topic), ключ `catalog.content.updated`, payload `
 
 Названия сущностей клиент берёт из Catalog сам (Analytics в Catalog не ходит).
 
+Определения полей:
+- `attemptsCompleted` — число строк `test_results`; `avgScorePct` — среднее по попыткам `score / total × 100` (попытки с `total = 0` не учитываются);
+- `answersTotal`, `correctRatePct` — по всем ответам (`question_stats`); `correctRatePct` = верные / все × 100;
+- `lastEventAt` — максимум из `answer_events.occurred_at` (поле `occurredAt` конверта) и `test_results.completed_at`, ISO 8601 UTC (`…Z`), без данных — `null`;
+- проценты округляются до 0,1 (`round(numeric, 1)` в PostgreSQL), без данных — `0`;
+- `entities`: при равном `correctRatePct` — сначала больше ответов, затем по `entityId`; `questions`: по `quizId`, затем по возрастанию `correctRatePct`; `quizId` не задан — все тесты, неизвестный — `[]`.
+- Ошибка БД при запросе статистики → `503 {"error":"unavailable",…}`. `/health` → `503`, пока схема не создана, БД недоступна или потребитель не подключён к брокеру.
+
 ### Таблицы (3)
 
 ```
 answer_events   event_id uuid PK, attempt_id uuid, quiz_id text, question_id uuid, entity_id text,
                 correct bool, client_id uuid, occurred_at timestamptz, payload jsonb
 test_results    attempt_id uuid PK, event_id uuid UNIQUE, quiz_id text, client_id uuid,
-                score int, total int, duration_ms int, completed_at timestamptz
+                score int, total int, duration_ms bigint, completed_at timestamptz
 question_stats  question_id uuid PK, quiz_id text, entity_id text, answers_total int, answers_correct int, updated_at timestamptz
 ```
 
 `question_stats` обновляется в той же транзакции, что вставка в `answer_events`, и только если вставка произошла (`INSERT … ON CONFLICT DO NOTHING RETURNING`). Статистика по сущностям — запрос `GROUP BY entity_id` по `answer_events`.
+Повторный `TestCompleted` той же попытки (тот же `attemptId`, даже с другим `eventId`) игнорируется: `ON CONFLICT DO NOTHING` по обоим уникальным ключам. Схема создаётся при старте `metadata.create_all` под `pg_advisory_xact_lock` (без Alembic).
 
 ## PostgreSQL
 
