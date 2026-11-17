@@ -57,6 +57,14 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "assets": {
+              "fileReplacements": [
+                {
+                  "replace": "projects/app/src/environments/environment.ts",
+                  "with": "projects/app/src/environments/environment.assets.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -68,7 +76,11 @@
               "buildTarget": "app:build:production"
             },
             "development": {
-              "buildTarget": "app:build:development"
+              "buildTarget": "app:build:development",
+              "proxyConfig": "projects/app/proxy.conf.json"
+            },
+            "assets": {
+              "buildTarget": "app:build:development,assets"
             }
           },
           "defaultConfiguration": "development"
