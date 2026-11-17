@@ -3,14 +3,16 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://+:8080");
-builder.Services.AddDbContext<CatalogDbContext>(o =>
-    o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+// Resolved lazily from the final configuration (tests override it via WebApplicationFactory).
+builder.Services.AddDbContext<CatalogDbContext>((sp, o) =>
+    o.UseNpgsql(sp.GetRequiredService<IConfiguration>().GetConnectionString("Default")));
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddSingleton(builder.Configuration.GetSection("S3").Get<S3Options>() ?? new S3Options());
 builder.Services.AddSingleton<ModelSync>();
 builder.Services.AddSingleton<CatalogState>();
 builder.Services.AddHostedService<StartupWorker>();
 builder.Services.AddHostedService<ConsulRegistrar>();
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
@@ -41,6 +43,11 @@ app.MapGet("/health", async (CatalogDbContext db, CatalogState state, ILogger<Pr
         return Results.Json(new { error = "unavailable", message = "models are not synced with MinIO yet" }, statusCode: 503);
     return Results.Json(new { status = "ok" });
 });
+
+app.MapCatalogApi();
+
+// OpenAPI document of the service: /openapi/v1.json (development only).
+if (app.Environment.IsDevelopment()) app.MapOpenApi();
 
 app.Run();
 

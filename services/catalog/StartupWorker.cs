@@ -60,8 +60,9 @@ public sealed class StartupWorker(
                 }
             }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        catch (Exception) when (ct.IsCancellationRequested)
         {
+            // Shutting down: drivers may wrap the cancellation in their own exception types.
         }
     }
 
