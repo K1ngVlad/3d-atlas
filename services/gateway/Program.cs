@@ -13,9 +13,10 @@ builder.Services.AddSingleton<IForwarderHttpClientFactory, GatewayHttpClientFact
 builder.Services.AddReverseProxy();
 // Passive health checks (cluster "HealthCheck.Passive" in appsettings): with the defaults (10 requests
 // in 60 s) a stopped instance would keep getting traffic in a demo; a 30 % failure rate over 2+ requests marks it.
+// YARP never reactivates sooner than the detection window, so the window equals ReactivationPeriod (10 s).
 builder.Services.Configure<TransportFailureRateHealthPolicyOptions>(o =>
 {
-    o.DetectionWindowSize = TimeSpan.FromSeconds(30);
+    o.DetectionWindowSize = TimeSpan.FromSeconds(10);
     o.MinimalTotalCountThreshold = 2;
     o.DefaultFailureRateLimit = 0.3;
 });
