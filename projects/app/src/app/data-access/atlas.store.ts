@@ -135,6 +135,15 @@ export class AtlasStore {
   });
   readonly isStubCurrent = computed(() => this.current()?.manifest.status === 'stub');
 
+  /**
+   * Просмотрщиком управляет атлас. Вне /atlas (например, в тесте) события ядра —
+   * выбор, двойной клик, загрузка — к атласу не относятся. Читается через
+   * untracked: смена владельца не должна перезапускать эффекты со старыми событиями.
+   */
+  private ownsViewer(): boolean {
+    return untracked(() => this.viewer.owner()) === 'atlas';
+  }
+
   private pendingDetailFocus: string | null = null;
   private lastLoadedManifestId: string | null = null;
   private syncSeq = 0;
@@ -222,7 +231,7 @@ export class AtlasStore {
       const part = this.selectedPart();
       const id = part?.entity ?? null;
       this.selectedEntity.set(null);
-      if (!id) return;
+      if (!id || !this.ownsViewer()) return;
       void this.repo.getEntity(id).then((e) => {
         if (this.selectedPart()?.entity === id) this.selectedEntity.set(e);
       });
@@ -234,14 +243,14 @@ export class AtlasStore {
     // петля (stack.update → current меняется → эффект перезапускается).
     effect(() => {
       const req = this.viewer.openDetailRequest();
-      if (!req) return;
+      if (!req || !this.ownsViewer()) return;
       untracked(() => void this.openDetail(req.partId, req.detailId));
     });
 
     // после каждой удачной загрузки в ядре — применить ожидающий focus
     effect(() => {
       const loaded = this.viewer.loaded();
-      if (!loaded) return;
+      if (!loaded || !this.ownsViewer()) return;
       const cur = this.current();
       if (!cur) return;
       if (this.lastLoadedManifestId === cur.manifestId) return;

@@ -6,10 +6,11 @@ import {
   OnDestroy,
   effect,
   inject,
+  input,
+  output,
   viewChild,
 } from '@angular/core';
-import { AtlasStore } from '../data-access/atlas.store';
-import { ViewerService } from './viewer.service';
+import { ViewerService, type ViewerOwner } from './viewer.service';
 
 // Должно совпадать с --atlas-panel-width в projects/app/src/styles/_tokens.scss.
 export const PANEL_WIDTH_PX = 360;
@@ -26,38 +27,49 @@ export const PANEL_WIDTH_PX = 360;
 export class ViewerHostComponent implements AfterViewInit, OnDestroy {
   private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('c');
   private readonly viewer = inject(ViewerService);
-  private readonly store = inject(AtlasStore);
   private ro: ResizeObserver | null = null;
+
+  /** Владелец просмотрщика, пока этот холст на экране (ViewerService.owner). */
+  readonly owner = input.required<ViewerOwner>();
+  /** Отступ справа под правую панель, px. */
+  readonly rightInset = input(PANEL_WIDTH_PX);
+  /** ?debug=manifest: Shift+клик копирует координаты точки поверхности. */
+  readonly debug = input(false);
+  /** Ядро создано и прикреплено к canvas — можно загружать модель. */
+  readonly attached = output<void>();
 
   constructor() {
     effect(() => {
-      const open = this.store.panelOpen();
-      this.viewer.setViewportInsets({ right: open ? PANEL_WIDTH_PX : 0 });
+      const right = this.rightInset();
+      if (this.viewer.isAttached) this.viewer.setViewportInsets({ right });
     });
   }
 
   ngAfterViewInit(): void {
     const canvas = this.canvasRef().nativeElement;
     this.viewer.attach(canvas);
+    this.viewer.owner.set(this.owner());
+    this.viewer.setViewportInsets({ right: this.rightInset() });
     const host = canvas.parentElement ?? canvas;
     const apply = () => this.viewer.resize(host.clientWidth, host.clientHeight, window.devicePixelRatio);
     apply();
     this.ro = new ResizeObserver(apply);
     this.ro.observe(host);
-    // загрузку текущего уровня запускаем только после attach
-    this.store.onViewerAttached();
+    // загрузку модели владелец запускает только после attach
+    this.attached.emit();
   }
 
   ngOnDestroy(): void {
     this.ro?.disconnect();
     this.ro = null;
+    if (this.viewer.owner() === this.owner()) this.viewer.owner.set(null);
     this.viewer.detach();
   }
 
   // ?debug=manifest: Shift+клик по модели копирует координаты точки
   // поверхности в формате label.anchor
   onCanvasClick(ev: MouseEvent): void {
-    if (!ev.shiftKey || !this.store.debug()) return;
+    if (!ev.shiftKey || !this.debug()) return;
     const p = this.viewer.pickSurface(ev.clientX, ev.clientY);
     if (!p) return;
     const text = `[${p.map((n) => +n.toFixed(3)).join(', ')}]`;
