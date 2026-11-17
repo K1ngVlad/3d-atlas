@@ -3,13 +3,13 @@ import logging
 import socket
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
 
-from . import consul, db
+from . import consul, db, stats
 from .consumer import Consumer
-from .db import engine
+from .db import SessionLocal, engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("aio_pika").setLevel(logging.WARNING)
@@ -66,6 +66,24 @@ async def health():
     if not consumer.ready:
         return _unavailable("message broker consumer is not connected")
     return {"status": "ok"}
+
+
+@app.get("/api/analytics/summary", response_model=stats.Summary)
+async def get_summary():
+    async with SessionLocal() as session:
+        return await stats.summary(session)
+
+
+@app.get("/api/analytics/entities", response_model=list[stats.EntityStats])
+async def get_entities():
+    async with SessionLocal() as session:
+        return await stats.entities(session)
+
+
+@app.get("/api/analytics/questions", response_model=list[stats.QuestionStats])
+async def get_questions(quiz_id: str | None = Query(default=None, alias="quizId")):
+    async with SessionLocal() as session:
+        return await stats.questions(session, quiz_id)
 
 
 async def _db_unavailable(_: Request, e: Exception):
