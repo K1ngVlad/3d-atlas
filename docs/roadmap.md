@@ -165,9 +165,9 @@
 
 ## Этап 9. Лабораторная
 - [x] Этап 0. Каркас и инфраструктура — `docs/lab/stage-0-infra.md`
-- [ ] Этап 1. Catalog + Gateway + клиент — `docs/lab/stage-1-catalog-gateway.md`
-- [ ] Этап 2. Quiz + экран тестов — `docs/lab/stage-2-quiz.md`
-- [ ] Этап 3. Брокер + Analytics + экран аналитики — `docs/lab/stage-3-broker-analytics.md`
+- [x] Этап 1. Catalog + Gateway + клиент — `docs/lab/stage-1-catalog-gateway.md`
+- [x] Этап 2. Quiz + экран тестов — `docs/lab/stage-2-quiz.md`
+- [x] Этап 3. Брокер + Analytics + экран аналитики — `docs/lab/stage-3-broker-analytics.md`
 - [ ] Этап 4. Демонстрация и документация — `docs/lab/stage-4-demo.md`
 
 ## Позже

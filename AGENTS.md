@@ -61,7 +61,8 @@ docs/
 ## Команды
 
 ```
-npm start              # dev-сервер
+npm start              # dev-сервер (API через прокси на gateway :8080, нужен docker compose)
+npm run start:assets   # dev-сервер без бэкенда (манифесты и модели из public/)
 npm test               # тесты приложения
 npm run test:core      # тесты viewer-core (Vitest)
 npm run lint
