@@ -79,9 +79,19 @@ services:
     environment:
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=catalog_db;Username=catalog;Password=${CATALOG_DB_PASSWORD}
       CONSUL_HTTP_ADDR: http://consul:8500
+      Seed__Path: /seed
+      S3__Endpoint: http://minio:9000
+      S3__AccessKey: ${MINIO_ROOT_USER}
+      S3__SecretKey: ${MINIO_ROOT_PASSWORD}
+      S3__Bucket: models
+    volumes:
+      # Seed data: manifests, content and .glb models (contracts.md, "Начальные данные").
+      - ../projects/app/public:/seed:ro
     depends_on:
       postgres: { condition: service_healthy }
       consul: { condition: service_healthy }
+      # Only speeds up the first start: the MinIO sync itself retries on every start.
+      minio: { condition: service_healthy }
 
   quiz:
     build:

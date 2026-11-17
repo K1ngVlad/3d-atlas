@@ -3,7 +3,7 @@ WORKDIR /src
 COPY services/gateway/Gateway.csproj ./
 RUN dotnet restore
 COPY services/gateway/ ./
-RUN dotnet publish -c Release -o /out --no-restore
+RUN dotnet publish Gateway.csproj -c Release -o /out --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
