@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import type { SceneManifest, Selection } from '@atlas/viewer-core';
+import type { SceneManifest, Selection, ViewerOptions } from '@atlas/viewer-core';
 import { STRUCTURE_REPO } from '../../data-access/repositories/structure-repository';
 import { ViewerService } from '../../viewer/viewer.service';
 
@@ -127,7 +127,7 @@ export class QuizCanvas {
     if (this.loadedId !== scene.manifestId) {
       this.focus.set(null);
       this.labelsMode.set('none');
-      this.viewer.setOptions({ labels: false, hover: false, exploded: false, isolate: false });
+      this.setOptions({ labels: false, hover: false, exploded: false, isolate: false });
       try {
         await this.viewer.load(manifest);
       } catch {
@@ -142,7 +142,7 @@ export class QuizCanvas {
 
     const focus = scene.focusPartId ? this.resolveFocus(manifest, scene.focusPartId) : null;
     const labels = scene.labels === 'all' || (scene.labels === 'focus' && focus !== null);
-    this.viewer.setOptions({ labels, hover: false, exploded: false, isolate: focus !== null });
+    this.setOptions({ labels, hover: false, exploded: false, isolate: focus !== null });
     if (this.appliedKey !== scene.key || !sameSelection(this.focus(), focus)) {
       this.viewer.select(focus, { fly: focus !== null });
       if (!focus) this.viewer.resetCamera();
@@ -151,6 +151,20 @@ export class QuizCanvas {
     this.focus.set(focus);
     this.labelsMode.set(scene.labels);
     this.enforcing = true;
+  }
+
+  /**
+   * В ядро — только изменившиеся опции: `exploded: false` при уже собранной модели
+   * ядро считает «выходом из расслоения» и возвращает камеру к виду до него —
+   * подлёт к части вопроса сбросился бы после ответа.
+   */
+  private setOptions(want: ViewerOptions): void {
+    const cur = this.viewer.options();
+    const diff: Partial<ViewerOptions> = {};
+    for (const k of Object.keys(want) as (keyof ViewerOptions)[]) {
+      if (cur[k] !== want[k]) diff[k] = want[k];
+    }
+    if (Object.keys(diff).length > 0) this.viewer.setOptions(diff);
   }
 
   /** Часть с `select: "each"` — первый экземпляр (`listInstances(partId)[0]`). */

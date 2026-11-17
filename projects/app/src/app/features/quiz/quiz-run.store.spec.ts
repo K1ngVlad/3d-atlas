@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import type { SceneManifest, Selection } from '@atlas/viewer-core';
+import type { SceneManifest, Selection, ViewerOptions } from '@atlas/viewer-core';
 import {
   QUIZ_REPO,
   type AttemptDetail,
@@ -66,11 +66,12 @@ class FakeViewer {
   readonly loading = signal(null);
   readonly error = signal(null);
   readonly labels = signal([]);
-  readonly options = signal({ labels: false, hover: false, exploded: false, isolate: false });
+  // как в ядре по умолчанию; setOptions отражается сразу (решение 36)
+  readonly options = signal<ViewerOptions>({ labels: true, hover: true, exploded: false, isolate: false });
   readonly isAttached = true;
   load = vi.fn(() => Promise.resolve());
   select = vi.fn((sel: Selection | null) => this.selection.set(sel));
-  setOptions = vi.fn();
+  setOptions = vi.fn((o: Partial<ViewerOptions>) => this.options.update((c) => ({ ...c, ...o })));
   resetCamera = vi.fn();
   listInstances = vi.fn(() => ['g-1', 'g-2']);
 }
@@ -265,9 +266,7 @@ describe('QuizRunStore', () => {
       await settle();
       expect(viewer.load).toHaveBeenCalledWith(MANIFESTS['animal-cell']);
       expect(viewer.select).toHaveBeenLastCalledWith({ partId: 'nucleus' }, { fly: true });
-      expect(viewer.setOptions).toHaveBeenLastCalledWith({
-        labels: false, hover: false, exploded: false, isolate: true,
-      });
+      expect(viewer.options()).toEqual({ labels: false, hover: false, exploded: false, isolate: true });
     });
 
     it('клик по модели во время вопроса возвращает выбор вопроса без подлёта', async () => {
@@ -284,16 +283,17 @@ describe('QuizRunStore', () => {
       repo.submitAnswer.mockResolvedValue({ correct: true, correctOptionIds: ['o11'], entity: null });
       await store.submit();
       await settle();
-      expect(viewer.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ labels: true }));
+      expect(viewer.options()).toMatchObject({ labels: true, isolate: true });
       expect(TestBed.inject(QuizCanvas).labelsOnly()).toEqual({ partId: 'nucleus' });
+      // `exploded: false` повторно не шлём: ядро вернуло бы камеру «до расслоения»
+      expect(viewer.setOptions.mock.calls.some(([o]) => 'exploded' in o)).toBe(false);
+      expect(viewer.select).toHaveBeenCalledTimes(1);
 
       await store.next();
       await settle();
       expect(viewer.select).toHaveBeenLastCalledWith(null, { fly: false });
       expect(viewer.resetCamera).toHaveBeenCalled();
-      expect(viewer.setOptions).toHaveBeenLastCalledWith(
-        expect.objectContaining({ labels: false, isolate: false }),
-      );
+      expect(viewer.options()).toMatchObject({ labels: false, isolate: false });
     });
 
     it('часть с select: "each" — первый экземпляр из listInstances; другая модель загружается', async () => {

@@ -244,8 +244,12 @@ export class LabelLayerComponent {
       .labels()
       .filter(
         (p) =>
-          !only ||
-          (p.partId === only.partId && (p.instance ?? undefined) === (only.instance ?? undefined)),
+          // нечисловая позиция (кадр во время смены модели) отравила бы сглаживание навсегда
+          Number.isFinite(p.x) &&
+          Number.isFinite(p.y) &&
+          (!only ||
+            (p.partId === only.partId &&
+              (p.instance ?? undefined) === (only.instance ?? undefined))),
       );
     const manifest = this.manifest();
     if (!this.viewer.options().labels || !manifest || positions.length === 0) {
@@ -332,7 +336,11 @@ export class LabelLayerComponent {
         const targetY = Math.max(r.anchorY - BOX_H / 2, prevBottom);
         prevBottom = targetY + BOX_H + BOX_GAP;
 
-        const st = this.motion.get(r.key);
+        const prevSt = this.motion.get(r.key);
+        const st =
+          prevSt && Number.isFinite(prevSt.x) && Number.isFinite(prevSt.y) && Number.isFinite(prevSt.anchorY)
+            ? prevSt
+            : undefined;
         let x: number;
         let y: number;
         let anchorY: number;
