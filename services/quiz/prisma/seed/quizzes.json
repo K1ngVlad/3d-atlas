@@ -1,0 +1,266 @@
+{
+  "quizzes": [
+    {
+      "id": "animal-cell-organelles",
+      "title": "Органоиды животной клетки",
+      "description": "Узнайте органоиды на модели клетки и вспомните их функции.",
+      "manifestId": "animal-cell",
+      "questions": [
+        {
+          "type": "single",
+          "text": "Что выделено на модели?",
+          "entityId": "mitochondrion",
+          "manifestId": "animal-cell",
+          "partId": "mitochondria",
+          "options": [
+            { "text": "Митохондрия", "correct": true },
+            { "text": "Аппарат Гольджи" },
+            { "text": "Ядро" },
+            { "text": "Шероховатая ЭПС" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели?",
+          "entityId": "golgi-apparatus",
+          "manifestId": "animal-cell",
+          "partId": "golgi",
+          "options": [
+            { "text": "Аппарат Гольджи", "correct": true },
+            { "text": "Гладкая ЭПС" },
+            { "text": "Центросома" },
+            { "text": "Митохондрия" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели?",
+          "entityId": "rough-endoplasmic-reticulum",
+          "manifestId": "animal-cell",
+          "partId": "rough-er",
+          "options": [
+            { "text": "Шероховатая ЭПС", "correct": true },
+            { "text": "Гладкая ЭПС" },
+            { "text": "Аппарат Гольджи" },
+            { "text": "Плазматическая мембрана" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели?",
+          "entityId": "centrosome",
+          "manifestId": "animal-cell",
+          "partId": "centrosome",
+          "options": [
+            { "text": "Центросома", "correct": true },
+            { "text": "Рибосомы" },
+            { "text": "Ядро" },
+            { "text": "Митохондрия" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Какой органоид — главный источник АТФ в клетке?",
+          "entityId": "mitochondrion",
+          "options": [
+            { "text": "Митохондрия", "correct": true },
+            { "text": "Рибосома" },
+            { "text": "Аппарат Гольджи" },
+            { "text": "Ядро" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Где синтезируются белки, предназначенные на экспорт или в мембраны?",
+          "entityId": "rough-endoplasmic-reticulum",
+          "options": [
+            { "text": "На шероховатой ЭПС", "correct": true },
+            { "text": "На гладкой ЭПС" },
+            { "text": "В центросоме" },
+            { "text": "В аппарате Гольджи" }
+          ]
+        },
+        {
+          "type": "multiple",
+          "text": "Какие функции выполняет гладкая ЭПС?",
+          "entityId": "smooth-endoplasmic-reticulum",
+          "options": [
+            { "text": "Синтез липидов", "correct": true },
+            { "text": "Детоксикация (обезвреживание веществ)", "correct": true },
+            { "text": "Хранение ионов кальция", "correct": true },
+            { "text": "Синтез белков на рибосомах" },
+            { "text": "Формирование веретена деления" }
+          ]
+        },
+        {
+          "type": "multiple",
+          "text": "Какие из перечисленных структур окружены мембраной?",
+          "entityId": "animal-cell",
+          "options": [
+            { "text": "Митохондрия", "correct": true },
+            { "text": "Аппарат Гольджи", "correct": true },
+            { "text": "Ядро", "correct": true },
+            { "text": "Рибосома" },
+            { "text": "Центросома" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Какая структура отделяет содержимое клетки от внешней среды и регулирует транспорт веществ?",
+          "entityId": "plasma-membrane",
+          "options": [
+            { "text": "Плазматическая мембрана", "correct": true },
+            { "text": "Ядерная оболочка" },
+            { "text": "Цитоплазма" },
+            { "text": "Аппарат Гольджи" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Из чего состоит рибосома?",
+          "entityId": "ribosome",
+          "options": [
+            { "text": "Из рРНК и белков", "correct": true },
+            { "text": "Из ДНК и гистонов" },
+            { "text": "Из двойного слоя фосфолипидов" },
+            { "text": "Из микротрубочек" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "organelle-structure",
+      "title": "Строение органоидов",
+      "description": "Детальные модели митохондрии, аппарата Гольджи и эндоплазматической сети.",
+      "manifestId": "animal-cell",
+      "questions": [
+        {
+          "type": "single",
+          "text": "Что выделено на модели митохондрии?",
+          "entityId": "mitochondrial-cristae",
+          "manifestId": "mitochondrion",
+          "partId": "cristae",
+          "options": [
+            { "text": "Кристы", "correct": true },
+            { "text": "Матрикс" },
+            { "text": "Мембраны митохондрии" },
+            { "text": "Гранулы матрикса" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели митохондрии?",
+          "entityId": "mitochondrial-granule",
+          "manifestId": "mitochondrion",
+          "partId": "granules",
+          "options": [
+            { "text": "Гранулы матрикса", "correct": true },
+            { "text": "Митохондриальная ДНК" },
+            { "text": "Кристы" },
+            { "text": "Матрикс" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Где в митохондрии идёт цикл Кребса?",
+          "entityId": "mitochondrial-matrix",
+          "manifestId": "mitochondrion",
+          "options": [
+            { "text": "В матриксе", "correct": true },
+            { "text": "На кристах" },
+            { "text": "В межмембранном пространстве" },
+            { "text": "На наружной мембране" }
+          ]
+        },
+        {
+          "type": "multiple",
+          "text": "Что верно для митохондриальной ДНК?",
+          "entityId": "mitochondrial-dna",
+          "manifestId": "mitochondrion",
+          "options": [
+            { "text": "Она кольцевая", "correct": true },
+            { "text": "Наследуется по материнской линии", "correct": true },
+            { "text": "Кодирует часть белков дыхательной цепи", "correct": true },
+            { "text": "Находится в межмембранном пространстве" },
+            { "text": "Упакована с гистонами в хромосомы" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели аппарата Гольджи?",
+          "entityId": "golgi-cis-cisternae",
+          "manifestId": "golgi",
+          "partId": "cis-cisternae",
+          "options": [
+            { "text": "Цис-цистерны", "correct": true },
+            { "text": "Срединные цистерны" },
+            { "text": "Транс-цистерны" },
+            { "text": "Секреторные пузырьки" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели аппарата Гольджи?",
+          "entityId": "golgi-trans-cisternae",
+          "manifestId": "golgi",
+          "partId": "trans-cisternae",
+          "options": [
+            { "text": "Транс-цистерны", "correct": true },
+            { "text": "Цис-цистерны" },
+            { "text": "Срединные цистерны" },
+            { "text": "Транспортные пузырьки" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что доставляют транспортные пузырьки к цис-стороне аппарата Гольджи?",
+          "entityId": "golgi-transport-vesicle",
+          "manifestId": "golgi",
+          "options": [
+            { "text": "Белки и липиды из ЭПС", "correct": true },
+            { "text": "Готовый секрет к плазматической мембране" },
+            { "text": "рРНК из ядрышка" },
+            { "text": "АТФ из митохондрий" }
+          ]
+        },
+        {
+          "type": "multiple",
+          "text": "Какие процессы происходят в аппарате Гольджи?",
+          "entityId": "golgi-apparatus",
+          "manifestId": "golgi",
+          "options": [
+            { "text": "Модификация белков (гликозилирование)", "correct": true },
+            { "text": "Сортировка веществ по месту назначения", "correct": true },
+            { "text": "Упаковка веществ в пузырьки", "correct": true },
+            { "text": "Синтез АТФ" },
+            { "text": "Удвоение ДНК" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Что выделено на модели эндоплазматической сети?",
+          "entityId": "smooth-endoplasmic-reticulum",
+          "manifestId": "endoplasmic-reticulum",
+          "partId": "smooth-er",
+          "options": [
+            { "text": "Гладкая ЭПС", "correct": true },
+            { "text": "Шероховатая ЭПС" },
+            { "text": "Рибосомы" }
+          ]
+        },
+        {
+          "type": "single",
+          "text": "Чем шероховатая ЭПС отличается от гладкой?",
+          "entityId": "rough-endoplasmic-reticulum",
+          "manifestId": "endoplasmic-reticulum",
+          "options": [
+            { "text": "На её мембранах прикреплены рибосомы", "correct": true },
+            { "text": "У неё нет мембраны" },
+            { "text": "Она обезвреживает токсины и синтезирует липиды" },
+            { "text": "Она находится внутри ядра" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-// Tables are added in stage 2 (contracts.md, "Quiz Service").
+// Tables: docs/lab/contracts.md, "Quiz Service".
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -6,4 +6,86 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model Quiz {
+  id          String     @id
+  title       String
+  description String
+  manifestId  String     @map("manifest_id")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  questions   Question[]
+  attempts    Attempt[]
+
+  @@map("quizzes")
+}
+
+model Question {
+  id         String         @id @db.Uuid
+  quizId     String         @map("quiz_id")
+  position   Int
+  type       String // 'single' | 'multiple'
+  text       String
+  /// Catalog entity id; no FK (another database).
+  entityId   String         @map("entity_id")
+  manifestId String?        @map("manifest_id")
+  partId     String?        @map("part_id")
+  quiz       Quiz           @relation(fields: [quizId], references: [id])
+  options    AnswerOption[]
+  answers    AttemptAnswer[]
+
+  @@unique([quizId, position])
+  @@map("questions")
+}
+
+model AnswerOption {
+  id         String                @id @db.Uuid
+  questionId String                @map("question_id") @db.Uuid
+  position   Int
+  text       String
+  isCorrect  Boolean               @map("is_correct")
+  question   Question              @relation(fields: [questionId], references: [id])
+  chosenIn   AttemptAnswerOption[]
+
+  @@unique([questionId, position])
+  @@map("answer_options")
+}
+
+model Attempt {
+  id              String          @id @db.Uuid
+  quizId          String          @map("quiz_id")
+  clientId        String          @map("client_id") @db.Uuid
+  participantName String?         @map("participant_name")
+  startedAt       DateTime        @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime?       @map("completed_at") @db.Timestamptz(6)
+  score           Int?
+  total           Int
+  quiz            Quiz            @relation(fields: [quizId], references: [id])
+  answers         AttemptAnswer[]
+
+  @@map("attempts")
+}
+
+model AttemptAnswer {
+  id         String                @id @db.Uuid
+  attemptId  String                @map("attempt_id") @db.Uuid
+  questionId String                @map("question_id") @db.Uuid
+  isCorrect  Boolean               @map("is_correct")
+  answeredAt DateTime              @map("answered_at") @db.Timestamptz(6)
+  attempt    Attempt               @relation(fields: [attemptId], references: [id])
+  question   Question              @relation(fields: [questionId], references: [id])
+  options    AttemptAnswerOption[]
+
+  @@unique([attemptId, questionId])
+  @@map("attempt_answers")
+}
+
+model AttemptAnswerOption {
+  attemptAnswerId String        @map("attempt_answer_id") @db.Uuid
+  optionId        String        @map("option_id") @db.Uuid
+  attemptAnswer   AttemptAnswer @relation(fields: [attemptAnswerId], references: [id])
+  option          AnswerOption  @relation(fields: [optionId], references: [id])
+
+  @@id([attemptAnswerId, optionId])
+  @@map("attempt_answer_options")
 }
