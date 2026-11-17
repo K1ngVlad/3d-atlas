@@ -3,7 +3,8 @@ import { APP_FILTER } from '@nestjs/core';
 import { CatalogClient } from './catalog/catalog.client';
 import { ApiErrorFilter } from './common/api-error';
 import { ConsulRegistrar } from './consul-registrar.service';
-import { LoggingQuizEventsPublisher, QuizEventsPublisher } from './events/quiz-events.publisher';
+import { QuizEventsPublisher } from './events/quiz-events.publisher';
+import { RabbitQuizEventsPublisher } from './events/rabbit-quiz-events.publisher';
 import { HealthController } from './health.controller';
 import { PrismaService } from './prisma.service';
 import { PrismaQuizStore } from './quiz/prisma-quiz.store';
@@ -21,7 +22,7 @@ import { SeedService } from './seed/seed.service';
     CatalogClient,
     QuizService,
     { provide: QuizStore, useClass: PrismaQuizStore },
-    { provide: QuizEventsPublisher, useClass: LoggingQuizEventsPublisher },
+    { provide: QuizEventsPublisher, useClass: RabbitQuizEventsPublisher },
     { provide: APP_FILTER, useClass: ApiErrorFilter },
   ],
 })

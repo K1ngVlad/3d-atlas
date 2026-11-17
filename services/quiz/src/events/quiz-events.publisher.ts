@@ -1,4 +1,3 @@
-import { Injectable, Logger } from '@nestjs/common';
 import type { QuestionType } from '../seed/seed-data';
 
 /** Payloads from contracts.md, "RabbitMQ: события". Dates are ISO 8601 strings. */
@@ -36,20 +35,3 @@ export abstract class QuizEventsPublisher {
   abstract isReady(): boolean;
 }
 
-/** Log-only implementation (stage 2 stub; kept for local runs without a broker). */
-@Injectable()
-export class LoggingQuizEventsPublisher extends QuizEventsPublisher {
-  private readonly log = new Logger('QuizEvents');
-
-  answerSubmitted(payload: AnswerSubmittedPayload): void {
-    this.log.log(`AnswerSubmitted ${JSON.stringify(payload)}`);
-  }
-
-  testCompleted(payload: TestCompletedPayload): void {
-    this.log.log(`TestCompleted ${JSON.stringify(payload)}`);
-  }
-
-  isReady(): boolean {
-    return true;
-  }
-}

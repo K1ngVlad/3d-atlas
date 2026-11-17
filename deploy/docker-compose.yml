@@ -91,9 +91,11 @@ services:
     environment:
       DATABASE_URL: postgresql://quiz:${QUIZ_DB_PASSWORD}@postgres:5432/quiz_db
       CONSUL_HTTP_ADDR: http://consul:8500
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     depends_on:
       postgres: { condition: service_healthy }
       consul: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
 
   analytics:
     build:
