@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-/** Default location of the seed file (works from both `src/seed` and `dist/seed`). */
-export const DEFAULT_SEED_FILE = resolve(__dirname, '../../prisma/seed/quizzes.json');
+/** Default seed location, relative to the service root (the working directory in the container and for npm scripts). */
+export const DEFAULT_SEED_FILE = resolve(process.cwd(), 'prisma/seed/quizzes.json');
 
 export type QuestionType = 'single' | 'multiple';
 
@@ -120,6 +120,15 @@ export function stableUuid(name: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** Deterministic permutation: `result[i]` is the 1-based display position of the i-th authored option. */
+export function shuffledPositions(count: number, key: string): number[] {
+  const ranked = Array.from({ length: count }, (_, i) => ({ i, h: createHash('sha1').update(`${key}/${i}`).digest('hex') }));
+  ranked.sort((a, b) => (a.h < b.h ? -1 : 1));
+  const result = new Array<number>(count);
+  ranked.forEach((r, pos) => (result[r.i] = pos + 1));
+  return result;
+}
+
 export function toRows(seed: SeedFile): SeedRows {
   const rows: SeedRows = { quizzes: [], questions: [], options: [] };
   for (const quiz of seed.quizzes) {
@@ -137,11 +146,13 @@ export function toRows(seed: SeedFile): SeedRows {
         manifestId: q.manifestId ?? null,
         partId: q.partId ?? null,
       });
+      // The seed lists the correct option(s) first for easy review; shown order is a stable shuffle.
+      const order = shuffledPositions(q.options.length, `${quiz.id}/q${position}`);
       q.options.forEach((o, oi) => {
         rows.options.push({
           id: stableUuid(`${quiz.id}/q${position}/o${oi + 1}`),
           questionId,
-          position: oi + 1,
+          position: order[oi],
           text: o.text,
           isCorrect: o.correct === true,
         });

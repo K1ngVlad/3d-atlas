@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { loadSeedFile, SeedError, stableUuid, toRows, validateSeed } from './seed-data';
 
 /** Read-only fixtures from the Angular app: the same files Catalog seeds from. */
-const PUBLIC_DIR = resolve(__dirname, '../../../../projects/app/public');
+const PUBLIC_DIR = resolve(process.cwd(), '../../projects/app/public');
 
 interface Manifest {
   id: string;
@@ -106,5 +106,19 @@ describe('validateSeed', () => {
     expect(err).toBeInstanceOf(SeedError);
     expect((err as Error).message).toMatch(/at least two correct and one wrong/);
     expect((err as Error).message).toMatch(/partId is set without manifestId/);
+  });
+});
+
+describe('option order', () => {
+  it('is a stable permutation that does not always put the correct option first', () => {
+    const rows = toRows(loadSeedFile());
+    const firstCorrect = rows.questions.filter(
+      (q) => rows.options.find((o) => o.questionId === q.id && o.position === 1)?.isCorrect,
+    ).length;
+    expect(firstCorrect).toBeLessThan(rows.questions.length / 2);
+    for (const q of rows.questions) {
+      const positions = rows.options.filter((o) => o.questionId === q.id).map((o) => o.position).sort();
+      expect(positions).toEqual(positions.map((_, i) => i + 1));
+    }
   });
 });
