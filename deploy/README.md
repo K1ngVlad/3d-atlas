@@ -88,6 +88,7 @@ npm run start:assets   # без бэкенда: манифесты, контен
 |---|---|
 | `/api/...` отвечает `503 {"error":"service_unavailable"}` сразу после старта | Сервис ещё не `passing` в Consul (миграции, seed). Подождать 20–40 с, проверить в Consul UI |
 | Catalog `critical` в Consul, в логе `MinIO model sync failed` | MinIO недоступен; синхронизация повторяется каждые 10 с, после восстановления MinIO Catalog станет `passing` сам |
+| `docker compose up --build` завершается ошибкой `rename …compose-build-metadataFile-….json: The process cannot access the file because it is being used by another process` (Windows) | Образы уже собраны, но контейнеры не пересозданы — временный файл держит антивирус или индексатор. Выполнить `docker compose up -d` (без `--build`): контейнеры пересоздадутся на новых образах |
 | Порт занят (`bind: address already in use`) | Освободить порт или поменять левую часть маппинга в `docker-compose.yml` |
 | Сборка analytics падает на `pip install` | Нестабильный доступ к PyPI; повторить `docker compose build analytics` (в Dockerfile уже есть ретраи) |
 | Изменили тексты вопросов в `services/quiz/prisma/seed/quizzes.json`, а в тестах старые | Seed Quiz загружается только в пустую БД: `docker compose down -v` и `up` (или очистить `quiz_db`) |
