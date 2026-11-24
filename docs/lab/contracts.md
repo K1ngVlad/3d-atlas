@@ -199,7 +199,7 @@ question_stats  question_id uuid PK, quiz_id text, entity_id text, answers_total
 | consul | 8500 | UI для демонстрации |
 | rabbitmq | 15672 | UI управления |
 | minio | 9001 | консоль |
-| postgres | 5432 | отладка |
+| postgres | 5432 (`POSTGRES_HOST_PORT`) | отладка; на хосте с локальным PostgreSQL — 5433 |
 
 ## Клиент (Angular)
 

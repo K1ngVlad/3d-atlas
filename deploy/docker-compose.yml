@@ -16,7 +16,8 @@ services:
       - pgdata:/var/lib/postgresql
       - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     ports:
-      - "5432:5432"
+      # Host port is configurable: a local PostgreSQL often already holds 5432 on Windows.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

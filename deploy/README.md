@@ -6,7 +6,7 @@
 
 - Docker Desktop (Windows / macOS) или Docker Engine + Compose v2 (Linux). Свободно ~4 ГБ RAM и ~5 ГБ диска под образы.
 - Node.js 18+ — только для `smoke.mjs` и dev-сервера клиента.
-- Свободные порты: 8080, 8500, 15672, 9001, 5432.
+- Свободные порты: 8080, 8500, 15672, 9001, 5432. Если 5432 занят локальным PostgreSQL — `POSTGRES_HOST_PORT=5433` в `.env` (см. «Частые проблемы»).
 
 ## Запуск
 
@@ -40,6 +40,10 @@ docker compose up -d --build
 | PostgreSQL, БД `catalog_db` | `localhost:5432` | `catalog` | `change-me-catalog` (`CATALOG_DB_PASSWORD`) |
 | PostgreSQL, БД `quiz_db` | `localhost:5432` | `quiz` | `change-me-quiz` (`QUIZ_DB_PASSWORD`) |
 | PostgreSQL, БД `analytics_db` | `localhost:5432` | `analytics` | `change-me-analytics` (`ANALYTICS_DB_PASSWORD`) |
+
+Порт PostgreSQL на хосте — `POSTGRES_HOST_PORT` из `.env` (по умолчанию 5432). Внутри сети compose сервисы всегда ходят на `postgres:5432`.
+
+**pgAdmin / DBeaver:** Host `127.0.0.1`, Port `5432` (или `POSTGRES_HOST_PORT`), Maintenance database `postgres`, Username/Password — из таблицы выше. Чтобы видеть таблицы сервиса, подключайтесь `postgres` (видит все три БД) или пользователем этой БД.
 
 Каждый пользователь БД имеет доступ только к своей базе (`deploy/postgres/init.sh`). Подключиться из консоли без клиента на хосте:
 
@@ -89,6 +93,7 @@ npm run start:assets   # без бэкенда: манифесты, контен
 | `/api/...` отвечает `503 {"error":"service_unavailable"}` сразу после старта | Сервис ещё не `passing` в Consul (миграции, seed). Подождать 20–40 с, проверить в Consul UI |
 | Catalog `critical` в Consul, в логе `MinIO model sync failed` | MinIO недоступен; синхронизация повторяется каждые 10 с, после восстановления MinIO Catalog станет `passing` сам |
 | `docker compose up --build` завершается ошибкой `rename …compose-build-metadataFile-….json: The process cannot access the file because it is being used by another process` (Windows) | Образы уже собраны, но контейнеры не пересозданы — временный файл держит антивирус или индексатор. Выполнить `docker compose up -d` (без `--build`): контейнеры пересоздадутся на новых образах |
+| pgAdmin: `connection to server at "::1", port 5432 failed: Permission denied (0x0000271D/10013)` или `password authentication failed` | На хосте запущен свой PostgreSQL (служба `postgresql-x64-NN`) на том же порту 5432. Добавить в `deploy/.env` строку `POSTGRES_HOST_PORT=5433`, выполнить `docker compose up -d postgres` и подключаться к `127.0.0.1:5433` |
 | Порт занят (`bind: address already in use`) | Освободить порт или поменять левую часть маппинга в `docker-compose.yml` |
 | Сборка analytics падает на `pip install` | Нестабильный доступ к PyPI; повторить `docker compose build analytics` (в Dockerfile уже есть ретраи) |
 | Изменили тексты вопросов в `services/quiz/prisma/seed/quizzes.json`, а в тестах старые | Seed Quiz загружается только в пустую БД: `docker compose down -v` и `up` (или очистить `quiz_db`) |
