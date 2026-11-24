@@ -45,6 +45,38 @@ describe('AtlasStore — навигация', () => {
   });
 });
 
+describe('AtlasStore — Catalog недоступен', () => {
+  let getManifest: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    getManifest = vi.fn(() => Promise.reject(new Error('HTTP 503')));
+    await TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: 'atlas', children: [{ path: '**', component: RouteStubComponent }] }]),
+        { provide: STRUCTURE_REPO, useValue: { ...repoStub, getManifest } },
+      ],
+    }).compileComponents();
+  });
+
+  it('ошибка манифеста → ошибка данных; «Повторить» после восстановления строит уровень', async () => {
+    const router = TestBed.inject(Router);
+    const store = TestBed.inject(AtlasStore);
+    await router.navigateByUrl('/atlas/animal-cell');
+
+    await vi.waitFor(() => expect(store.dataError()).not.toBeNull());
+    expect(store.error()).toBe(store.dataError());
+    expect(store.errorTitle()).toBe('Не удалось загрузить данные атласа');
+    expect(store.current()).toBeNull();
+
+    getManifest.mockImplementation((id: string) => Promise.resolve(manifest(id)));
+    await store.retryLoad();
+
+    expect(store.dataError()).toBeNull();
+    expect(store.current()?.manifestId).toBe('animal-cell');
+    expect(getManifest).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('AtlasStore — владелец просмотрщика', () => {
   let manifestExists: ReturnType<typeof vi.fn>;
 

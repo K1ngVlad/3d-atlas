@@ -55,7 +55,7 @@ import { DebugOverlayComponent } from './debug-overlay.component';
 
       @if (store.error(); as e) {
         <div class="error" role="alert">
-          <div class="title">Не удалось загрузить модель</div>
+          <div class="title">{{ store.errorTitle() }}</div>
           <div class="msg">{{ e.message }}</div>
           <div class="actions">
             <button type="button" (click)="store.retryLoad()">Повторить</button>

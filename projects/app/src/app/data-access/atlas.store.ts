@@ -87,7 +87,13 @@ export class AtlasStore {
   readonly options = this.viewer.options;
   readonly panelOpen = signal<boolean>(readSessionBool(SESSION_PANEL_OPEN, true));
   readonly loading = this.viewer.loading;
-  readonly error = this.viewer.error;
+  /** Ошибка получения манифеста из репозитория (Catalog недоступен, сеть). */
+  readonly dataError = signal<Error | null>(null);
+  /** Ошибка уровня: сначала данные (без манифеста модель не загрузить), затем ядро. */
+  readonly error = computed(() => this.dataError() ?? this.viewer.error());
+  readonly errorTitle = computed(() =>
+    this.dataError() ? 'Не удалось загрузить данные атласа' : 'Не удалось загрузить модель',
+  );
   readonly selection = this.viewer.selection;
   readonly hover = this.viewer.hover;
   readonly existingDetails = signal<ReadonlySet<string>>(new Set());
@@ -281,6 +287,13 @@ export class AtlasStore {
   }
 
   async retryLoad(): Promise<void> {
+    if (this.dataError()) {
+      // манифест не получен — повторить синхронизацию с текущим URL
+      // (репозиторий не кэширует сетевые ошибки и 5xx)
+      this.dataError.set(null);
+      await this.syncWithUrl(this.router.url);
+      return;
+    }
     const cur = this.current();
     if (!cur) return;
     this.lastLoadedManifestId = null;
@@ -382,34 +395,55 @@ export class AtlasStore {
       segments.length === prev.length + 1 &&
       segments.slice(0, -1).every((s, i) => s === prev[i].manifestId)
     ) {
+      let manifest: SceneManifest;
       try {
-        const manifest = await this.repo.getManifest(targetTop);
-        if (stale()) return;
-        this.stack.update((s) => [...s, { manifestId: targetTop, manifest, state: null }]);
-        this.lastLoadedManifestId = null;
-        if (!this.viewer.isAttached) return;
+        manifest = await this.repo.getManifest(targetTop);
+      } catch (err) {
+        if (!stale()) this.failData(err);
+        return;
+      }
+      if (stale()) return;
+      this.dataError.set(null);
+      this.stack.update((s) => [...s, { manifestId: targetTop, manifest, state: null }]);
+      this.lastLoadedManifestId = null;
+      if (!this.viewer.isAttached) return;
+      try {
         await this.viewer.load(manifest);
       } catch {
-        // ошибка проброшена
+        // ошибка ядра уже в сигналах viewer
       }
       return;
     }
 
     // 3) внешняя навигация — построить стек с нуля
+    const frames: LevelFrame[] = [];
     try {
-      const frames: LevelFrame[] = [];
       for (const id of segments) {
         const manifest = await this.repo.getManifest(id);
         if (stale()) return;
         frames.push({ manifestId: id, manifest, state: null });
       }
-      this.stack.set(frames);
-      this.lastLoadedManifestId = null;
-      if (!this.viewer.isAttached) return;
+    } catch (err) {
+      // стек оставляем прежним — пользователь увидит сообщение и «Повторить»
+      if (!stale()) this.failData(err);
+      return;
+    }
+    this.dataError.set(null);
+    this.stack.set(frames);
+    this.lastLoadedManifestId = null;
+    if (!this.viewer.isAttached) return;
+    try {
       await this.viewer.load(frames[frames.length - 1].manifest);
     } catch {
-      // в случае ошибки стек оставляем прежним — пользователь увидит сообщение
+      // ошибка ядра уже в сигналах viewer
     }
+  }
+
+  private failData(err: unknown): void {
+    console.warn('[atlas] manifest load failed:', err);
+    this.dataError.set(
+      new Error('Сервер атласа сейчас недоступен. Проверьте соединение и попробуйте ещё раз.'),
+    );
   }
 
   private async checkDetailExistence(manifest: SceneManifest): Promise<void> {
